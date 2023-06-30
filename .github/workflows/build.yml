@@ -58,8 +58,8 @@ jobs:
       App_Name: MiBand-Heartrate
       Solution_Name: MiBand-Heartrate                         # Replace with your solution name, i.e. MyWpfApp.sln.
       #Test_Project_Path: your-test-project-path                 # Replace with the path to your test project, i.e. MyWpfApp.Tests\MyWpfApp.Tests.csproj.
-      Wap_Project_Directory: MiBand-Heartrate-2    # Replace with the Wap project directory relative to the solution, i.e. MyWpfApp.Package.
-      Project_Path: MiBand-Heartrate-2\MiBand-Heartrate-2.csproj                   # Replace with the path to your Wap project, i.e. MyWpf.App.Package\MyWpfApp.Package.wapproj.
+      Wap_Project_Directory: MiBand-Heartrate    # Replace with the Wap project directory relative to the solution, i.e. MyWpfApp.Package.
+      Project_Path: MiBand-Heartrate\MiBand-Heartrate.csproj                   # Replace with the path to your Wap project, i.e. MyWpf.App.Package\MyWpfApp.Package.wapproj.
 
     steps:
     - name: Checkout
