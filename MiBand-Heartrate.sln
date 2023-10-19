@@ -1,9 +1,12 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31005.135
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33815.320
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MiBand-Heartrate", "MiBand-Heartrate\MiBand-Heartrate.csproj", "{53822A35-87B0-42CE-8680-B92532ACB3EB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvaloniaApplication1.Desktop", "AvaloniaApplication1.Desktop\AvaloniaApplication1.Desktop.csproj", "{3EBDB1A6-DB48-4B7B-8345-0E86FEF7230C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AvaloniaApplication1", "AvaloniaApplication1\AvaloniaApplication1.csproj", "{F7FFC431-5E5C-4927-AF09-6577D80B75C1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +18,14 @@ Global
 		{53822A35-87B0-42CE-8680-B92532ACB3EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{53822A35-87B0-42CE-8680-B92532ACB3EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{53822A35-87B0-42CE-8680-B92532ACB3EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3EBDB1A6-DB48-4B7B-8345-0E86FEF7230C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3EBDB1A6-DB48-4B7B-8345-0E86FEF7230C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3EBDB1A6-DB48-4B7B-8345-0E86FEF7230C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3EBDB1A6-DB48-4B7B-8345-0E86FEF7230C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7FFC431-5E5C-4927-AF09-6577D80B75C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7FFC431-5E5C-4927-AF09-6577D80B75C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7FFC431-5E5C-4927-AF09-6577D80B75C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7FFC431-5E5C-4927-AF09-6577D80B75C1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,15 +1,11 @@
-<Window x:Class="MiBand_Heartrate.AuthenticationKeyWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window x:Class="MiBand_Heartrate.Views.AuthenticationKeyWindow"
+        xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MiBand_Heartrate"
         mc:Ignorable="d"
-        Title="Heartrate Monitor - Authentication" SizeToContent="WidthAndHeight" Icon="icon.ico">
-    
-    <Window.Resources>
-        <ResourceDictionary Source="Style.xaml"></ResourceDictionary>
-    </Window.Resources>
+        Title="Heartrate Monitor - Authentication" SizeToContent="WidthAndHeight">
 
     <Window.DataContext>
         <local:AuthenticationKeyViewModel></local:AuthenticationKeyViewModel>
@@ -24,13 +20,13 @@
         <Separator Margin="0 10"></Separator>
 
         <TextBlock Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left">This device need an authentication key for being used.
-            <LineBreak />If you don't know how to obtain it, check the website <Hyperlink NavigateUri="http://www.freemyband.com">freemyband.com</Hyperlink>.</TextBlock>
+            <LineBreak />If you don't know how to obtain it, check the website http://www.freemyband.com.</TextBlock>
 
         <Separator Margin="0 10 0 0"></Separator>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-            <Button Content="Cancel" Padding="10 5" Margin="5 10 5 5" Command="{Binding Command_Cancel}"></Button>
-            <Button Content="Ok" Padding="10 5" Margin="5 10 5 5" Command="{Binding Command_Valid}"></Button>
+            <Button Content="Cancel" Padding="10 5" Margin="5 10 5 5" Command="{Binding CommandCancel}"></Button>
+            <Button Content="Ok" Padding="10 5" Margin="5 10 5 5" Command="{Binding CommandValid}"></Button>
         </StackPanel>
     </StackPanel>
 </Window>

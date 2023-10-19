@@ -22,11 +22,9 @@ namespace MiBand_Heartrate.Devices
 
         string _name = "";
 
-        public string Name
-        {
-            get { return _name; }
-            set
-            {
+        public string Name {
+            get => _name;
+            set {
                 _name = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Name"));
             }
@@ -34,11 +32,9 @@ namespace MiBand_Heartrate.Devices
 
         DeviceStatus _status = Devices.DeviceStatus.OFFLINE;
 
-        public DeviceStatus Status
-        {
-            get { return _status; }
-            internal set
-            {
+        public DeviceStatus Status {
+            get => _status;
+            internal set {
                 _status = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Status"));
             }
@@ -52,9 +48,8 @@ namespace MiBand_Heartrate.Devices
 
         public ushort Heartrate
         {
-            get { return _heartrate; }
-            internal set
-            {
+            get => _heartrate;
+            internal set {
                 _heartrate = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Heartrate"));
             }
@@ -63,11 +58,9 @@ namespace MiBand_Heartrate.Devices
 
         bool _heartrateMonitorStarted = false;
 
-        public bool HeartrateMonitorStarted
-        {
-            get { return _heartrateMonitorStarted; }
-            internal set
-            {
+        public bool HeartrateMonitorStarted {
+            get => _heartrateMonitorStarted;
+            internal set {
                 _heartrateMonitorStarted = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("HeartrateMonitorStarted"));
             }

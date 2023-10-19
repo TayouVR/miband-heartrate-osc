@@ -1,0 +1,61 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MiBand_Heartrate.App"
+             xmlns:conv="clr-namespace:HXE.GUI.Converters;assembly=HXE"
+             xmlns:converters="clr-namespace:HXE.GUI.Converters"
+             RequestedThemeVariant="Default">
+    
+    <Application.Styles>
+        <Style
+            Selector="HeaderedContentControl">
+            <SimpleTheme />
+            <Style.Resources>
+                <converters:RectGeometryConverter x:Key="rectConv" />
+            </Style.Resources>
+            <Setter
+                Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Grid Name="GBGrid">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+
+                            <TextBlock Name="GBHeaderText"
+                                       Margin="5,0,0,0"
+                                       Padding="5,0,5,0"
+                                       ZIndex="1"
+                                       TextBlock.FontWeight="Bold" Text="{TemplateBinding Header}">
+                                <TextBlock.Bounds />
+                            </TextBlock>
+
+                            <Border Name="GBContent"
+                                    Grid.RowSpan="2" Grid.ColumnSpan="2"
+                                    Margin="0,10,0,0"
+                                    Padding="5,10,5,5"
+                                    BorderBrush="{TemplateBinding Foreground}"
+                                    BorderThickness="1">
+                                <Border.Clip>
+                                    <CombinedGeometry x:DataType="Rect"
+                                                      GeometryCombineMode="Exclude"
+                                                      Geometry1="{Binding ElementName=GBGrid, Path=Bounds, Mode=OneWay, Converter={StaticResource rectConv}}"
+                                                      Geometry2="{Binding ElementName=GBHeaderText, Path=Bounds, Mode=OneWay, Converter={StaticResource rectConv}}">
+                                    </CombinedGeometry>
+                                </Border.Clip>
+                                <ContentPresenter Content="{TemplateBinding Content}" />
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <FluentTheme DensityStyle="Compact" />
+    </Application.Styles>
+</Application>

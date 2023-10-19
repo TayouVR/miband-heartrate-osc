@@ -1,0 +1,92 @@
+<Window x:Class="MiBand_Heartrate.Views.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MiBand_Heartrate"
+        xmlns:viewModels="clr-namespace:MiBand_Heartrate.ViewModels"
+        mc:Ignorable="d"
+        Title="Heartrate Monitor" Width="400" Height="430" MinHeight="430" MinWidth="400"
+        Closing="Window_Closing">
+    
+    
+    
+    <Window.DataContext>
+        <viewModels:MainWindowViewModel></viewModels:MainWindowViewModel>
+    </Window.DataContext>
+
+    <StackPanel>
+        <Grid Margin="5" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition></ColumnDefinition>
+                <ColumnDefinition Width="0.6*"></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+
+            <Label Grid.Column="0" VerticalAlignment="Center" Content="{Binding StatusText}"></Label>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1">
+                <Button Content="Manual Connect" Padding="10 5" Margin="5 5 0 5" Command="{Binding CommandConnect}" Classes.UseAutoConnect="{Binding UseAutoConnect}" Classes.IsConnected="{Binding IsConnected}">
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="IsVisible" Value="True" />
+                        </Style>
+                        <Style Selector="Button.UseAutoConnect">
+                            <Style.Setters>
+                                <Setter Property="IsVisible" Value="False" />
+                            </Style.Setters>
+                        </Style>
+                        <Style Selector="Button.IsConnected">
+                            <Style.Setters>
+                                <Setter Property="IsVisible" Value="False" />
+                            </Style.Setters>
+                        </Style>
+                    </Button.Styles>
+                </Button>
+                <Button Content="Disconnect" Padding="10 5" Margin="5 5 0 5" Command="{Binding CommandDisconnect}">
+                </Button>
+                <Button Content="Auto Connect" Padding="10 5" Margin="5 5 0 5" Command="{Binding CommandAutoConnect}">
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <HeaderedContentControl Header="Heartrate" Margin="5" >
+            <StackPanel Orientation="Vertical">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Label FontSize="32" Margin="0 10" Content="{Binding Device.Heartrate}"></Label>
+                    <Label FontSize="32" Margin="0 10" Content="bpm" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Label Content="Min:"/>
+                        <Label Content="{Binding MinHeartrate}"></Label>
+                        <Label Content="bpm" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Label Content="Max:"/>
+                        <Label Content="{Binding MaxHeartrate}"></Label>
+                        <Label Content="bpm" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <HeaderedContentControl Header="Options" Margin="5">
+            <StackPanel Margin="5">
+                <CheckBox Margin="0 2" IsChecked="{Binding ContinuousMode, Mode=TwoWay}">Enable continuous mode</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableCSVOutput, Mode=TwoWay}">Export data in CSV file</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableFileOutput, Mode=TwoWay}">Write realtime data in text file</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableOscOutput, Mode=TwoWay}">Send OSC to VRChat</CheckBox>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <Grid Height="40" Margin="0 15 0 10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition></ColumnDefinition>
+                <ColumnDefinition></ColumnDefinition>
+            </Grid.ColumnDefinitions>
+
+            <Button Content="Start" Grid.Column="0" Margin="5 0" Command="{Binding CommandStart}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"></Button>
+            <Button Content="Stop" Grid.Column="1" Margin="5 0" Command="{Binding CommandStop}" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"></Button>
+        </Grid>
+    </StackPanel>    
+</Window>
