@@ -22,9 +22,29 @@ public class App {
         AnsiConsole.Write(new FigletText("MiBand HR").Color(Color.Blue));
 
         var ble = new BLE();
-        ble.DeviceFound += (s, d) => {
-            
-            _discoveredDevices[d.Id] = d;
+        ble.DeviceFound += async (s, d) => {
+            try {
+                // Some devices might require connection to discover services, 
+                // but usually advertised services are available in the device object if the library supports it.
+                // InTheHand.BluetoothLE seems to require connection for GetPrimaryServicesAsync.
+                // However, we can check advertised ServiceUuids if available.
+                // If not, we might need a different approach or just filter by name if that's what was intended.
+                // The issue says "filter them for only ones, with the heartrate characteristic".
+                
+                // Let's try to see if we can get services without full connection or if d.Uuids is available.
+                // If this is slow, it might affect the UI.
+                
+                // Actually, heart rate service UUID is 0x180D.
+                // Characteristics are under services.
+                
+                // If d.Gatt.GetPrimaryServicesAsync() works here, it means it's doing discovery.
+                var services = await d.Gatt.GetPrimaryServicesAsync();
+                if (services.Any(srv => srv.Uuid == BluetoothUuid.FromShortId(0x180d))) {
+                    _discoveredDevices[d.Id] = d;
+                }
+            } catch {
+                // Ignore devices that fail service discovery
+            }
         };
 
         AnsiConsole.MarkupLine("[yellow]Scanning for devices...[/]");

@@ -75,11 +75,21 @@ namespace MiBand_Heartrate
             }
         }
 
-        private void OnBluetoothAdded(object sender, BluetoothDevice args)
+        private async void OnBluetoothAdded(object sender, BluetoothDevice args)
         {
-            if (!Devices.Any(d => d.Id == args.Id))
+            if (Devices.Any(d => d.Id == args.Id)) return;
+
+            try
             {
-                Devices.Add(args);
+                var services = await args.Gatt.GetPrimaryServicesAsync();
+                if (services.Any(srv => srv.Uuid == BluetoothUuid.FromShortId(0x180d)))
+                {
+                    Devices.Add(args);
+                }
+            }
+            catch
+            {
+                // Ignore
             }
         }
 

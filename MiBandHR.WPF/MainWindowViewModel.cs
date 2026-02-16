@@ -197,6 +197,13 @@ namespace MiBand_Heartrate
                         async void OnBluetoothAdded(object sender, BluetoothDevice args) {
                             if (args.Name != defaultDeviceName) return;
 
+                            try {
+                                var services = await args.Gatt.GetPrimaryServicesAsync();
+                                if (!services.Any(srv => srv.Uuid == BluetoothUuid.FromShortId(0x180d))) return;
+                            } catch {
+                                return;
+                            }
+
                             Device device;
                             switch (defaultDeviceVersion) {
                                 case "2":
