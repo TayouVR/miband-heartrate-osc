@@ -1,8 +1,6 @@
-using System;
 using System.Diagnostics;
-using System.Threading;
 
-namespace MiBand_Heartrate.Devices
+namespace MiBandHR.Core.Devices
 {
     public class Dummy_Device : Device
     {
@@ -21,17 +19,17 @@ namespace MiBand_Heartrate.Devices
 
         public override void Authenticate()
         {
-            if (Status == Devices.DeviceStatus.ONLINE_UNAUTH)
+            if (Status == MiBandHR.Core.Devices.DeviceStatus.ONLINE_UNAUTH)
             {
-                Status = Devices.DeviceStatus.ONLINE_AUTH;
+                Status = MiBandHR.Core.Devices.DeviceStatus.ONLINE_AUTH;
             }
         }
 
         public override void Connect()
         {
-            if (Status == Devices.DeviceStatus.OFFLINE)
+            if (Status == MiBandHR.Core.Devices.DeviceStatus.OFFLINE)
             {
-                Status = Devices.DeviceStatus.ONLINE_UNAUTH;
+                Status = MiBandHR.Core.Devices.DeviceStatus.ONLINE_UNAUTH;
             }
         }
 
@@ -39,9 +37,9 @@ namespace MiBand_Heartrate.Devices
         {
             StopHeartrateMonitor();
 
-            if (Status != Devices.DeviceStatus.OFFLINE)
+            if (Status != MiBandHR.Core.Devices.DeviceStatus.OFFLINE)
             {
-                Status = Devices.DeviceStatus.OFFLINE;
+                Status = MiBandHR.Core.Devices.DeviceStatus.OFFLINE;
             }
         }
 

@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:MiBand_Heartrate"
+                    xmlns:converters="clr-namespace:MiBandHR.WPF.Converters">
+    
+    <!-- Converters -->
+    <converters:DeviceStatusConverter x:Key="DeviceStatusConverter"></converters:DeviceStatusConverter>
+    
+</ResourceDictionary>

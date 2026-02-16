@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using System.Windows.Data;
-using MiBand_Heartrate.Devices;
+using MiBandHR.Core.Devices;
 
-namespace MiBand_Heartrate
+namespace MiBandHR.WPF.Converters
 {
     public class DeviceStatusConverter : IValueConverter
     {

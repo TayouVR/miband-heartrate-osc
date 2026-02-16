@@ -1,17 +1,20 @@
 using System;
 using System.ComponentModel;
-using System.Configuration;
 using System.Windows;
 using System.Windows.Input;
-using Windows.Devices.Enumeration;
-using MiBand_Heartrate.Devices;
 using MiBand_Heartrate.Extras;
+using MiBandHR.Core;
+using MiBandHR.Core.Configuration;
+using MiBandHR.Core.Devices;
+using InTheHand.Bluetooth;
 
 namespace MiBand_Heartrate
 {
     public class MainWindowViewModel : ViewModel
     {
         Device _device;
+
+        BLE _autoConnectBluetooth;
 
         public Device Device {
             get => _device;
@@ -54,57 +57,57 @@ namespace MiBand_Heartrate
         }
         
         public bool UseAutoConnect {
-            get => Properties.Settings.Default.useAutoConnect;
+            get => ConfigurationManager.Instance.CurrentConfig.Device.UseAutoConnect;
             set {
-                Properties.Settings.Default.useAutoConnect = value;
-                Properties.Settings.Default.Save();
+                ConfigurationManager.Instance.CurrentConfig.Device.UseAutoConnect = value;
+                ConfigurationManager.Instance.SaveConfiguration();
 
                 InvokePropertyChanged("UseAutoConnect");
             }
         }
         
-        private string DefaultDeviceVersionSetting => Properties.Settings.Default.autoConnectDeviceVersion;
+        private string DefaultDeviceVersionSetting => ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceVersion;
         
-        private string DefaultDeviceName => Properties.Settings.Default.autoConnectDeviceName;
+        private string DefaultDeviceName => ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceName;
         
-        private string DefaultDeviceAuthKey => Properties.Settings.Default.autoConnectDeviceAuthKey;
+        private string DefaultDeviceAuthKey => ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceAuthKey;
 
 
         public bool ContinuousMode {
-            get => Properties.Settings.Default.continuousMode;
+            get => ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode;
             set {
-                Properties.Settings.Default.continuousMode = value;
-                Properties.Settings.Default.Save();
+                ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode = value;
+                ConfigurationManager.Instance.SaveConfiguration();
 
                 InvokePropertyChanged("ContinuousMode");
             }
         }
 
         public bool EnableFileOutput {
-            get => Properties.Settings.Default.fileOutput;
+            get => ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled;
             set {
-                Properties.Settings.Default.fileOutput = value;
-                Properties.Settings.Default.Save();
+                ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled = value;
+                ConfigurationManager.Instance.SaveConfiguration();
 
                 InvokePropertyChanged("EnableFileOutput");
             }
         }
 
         public bool EnableCSVOutput {
-            get => Properties.Settings.Default.csvOutput;
+            get => ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled;
             set {
-                Properties.Settings.Default.csvOutput = value;
-                Properties.Settings.Default.Save();
+                ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled = value;
+                ConfigurationManager.Instance.SaveConfiguration();
 
                 InvokePropertyChanged("EnableCSVOutput");
             }
         }
 
         public bool EnableOscOutput {
-            get => Properties.Settings.Default.oscOutput;
+            get => ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled;
             set {
-                Properties.Settings.Default.oscOutput = value;
-                Properties.Settings.Default.Save();
+                ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled = value;
+                ConfigurationManager.Instance.SaveConfiguration();
 
                 InvokePropertyChanged("EnableOscOutput");
             }
@@ -185,14 +188,13 @@ namespace MiBand_Heartrate
             get {
                 return _command_auto_connect ??= new RelayCommand<object>("connect",
                     "Connect to a device", o => {
-                        var bluetooth = new BLE(new[]
-                            {"System.Devices.Aep.DeviceAddress", "System.Devices.Aep.IsConnected"});
+                        _autoConnectBluetooth = new BLE();
 
                         var defaultDeviceVersion = DefaultDeviceVersionSetting;
                         var defaultDeviceName = DefaultDeviceName;
                         var defaultDeviceAuthKey = DefaultDeviceAuthKey;
 
-                        void OnBluetoothAdded(DeviceWatcher sender, DeviceInformation args) {
+                        async void OnBluetoothAdded(object sender, BluetoothDevice args) {
                             if (args.Name != defaultDeviceName) return;
 
                             Device device;
@@ -213,16 +215,13 @@ namespace MiBand_Heartrate
 
                             Device = device;
 
-                            if (bluetooth.Watcher != null) {
-                                bluetooth.Watcher.Added -= OnBluetoothAdded;
+                            if (_autoConnectBluetooth != null) {
+                                _autoConnectBluetooth.DeviceFound -= OnBluetoothAdded;
                             }
-
-                            bluetooth.StopWatcher();
                         }
 
-                        bluetooth.Watcher.Added += OnBluetoothAdded;
-
-                        bluetooth.StartWatcher();
+                        _autoConnectBluetooth.DeviceFound += OnBluetoothAdded;
+                        _ = _autoConnectBluetooth.ScanForDevicesAsync();
                     }, o => Device == null || Device.Status == DeviceStatus.OFFLINE);
             }
         }

@@ -1,7 +1,8 @@
 using System;
 using System.ComponentModel;
 using System.IO;
-using MiBand_Heartrate.Devices;
+using MiBandHR.Core.Configuration;
+using MiBandHR.Core.Devices;
 
 namespace MiBand_Heartrate.Extras
 {
@@ -30,7 +31,7 @@ namespace MiBand_Heartrate.Extras
 
         private void OnDeviceChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == "Heartrate" && Properties.Settings.Default.csvOutput)
+            if (e.PropertyName == "Heartrate" && ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled)
             {
                 try
                 {
@@ -49,7 +50,7 @@ namespace MiBand_Heartrate.Extras
                 }
                 catch (Exception err)
                 {
-                    MessageWindow.ShowError(err.ToString());
+                    Console.WriteLine(err.ToString());
                 }
             }
         }

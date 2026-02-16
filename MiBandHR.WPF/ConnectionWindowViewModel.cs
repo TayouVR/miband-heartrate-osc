@@ -2,16 +2,17 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Data;
 using System.Windows.Input;
-using Windows.Devices.Enumeration;
-using MiBand_Heartrate.Devices;
+using InTheHand.Bluetooth;
+using MiBandHR.Core;
+using MiBandHR.Core.Devices;
 
 namespace MiBand_Heartrate
 {
     public class ConnectionWindowViewModel : ViewModel
     {
-        ObservableCollection<DeviceInformation> _devices = new ObservableCollection<DeviceInformation>();
+        ObservableCollection<BluetoothDevice> _devices = new ObservableCollection<BluetoothDevice>();
 
-        public ObservableCollection<DeviceInformation> Devices
+        public ObservableCollection<BluetoothDevice> Devices
         {
             get { return _devices; }
             set
@@ -21,9 +22,9 @@ namespace MiBand_Heartrate
             }
         }
 
-        DeviceInformation _selectedDevice;
+        BluetoothDevice _selectedDevice;
 
-        public DeviceInformation SelectedDevice
+        public BluetoothDevice SelectedDevice
         {
             get { return _selectedDevice; }
             set
@@ -60,49 +61,26 @@ namespace MiBand_Heartrate
             // Enables a CollectionView object to participate in synchronized access to a collection that is used on multiple threads.
             BindingOperations.EnableCollectionSynchronization(Devices, new object());
             
-            _bluetooth = new BLE(new[] {"System.Devices.Aep.DeviceAddress", "System.Devices.Aep.IsConnected"});
+            _bluetooth = new BLE();
 
-            _bluetooth.Watcher.Added += OnBluetoothAdded;
-            _bluetooth.Watcher.Updated += OnBluetoothUpdated;
-            _bluetooth.Watcher.Removed += OnBluetoothRemoved;
-
-            _bluetooth.StartWatcher();
+            _bluetooth.DeviceFound += OnBluetoothAdded;
+            _ = _bluetooth.ScanForDevicesAsync();
         }
 
         ~ConnectionWindowViewModel()
         {
-            if (_bluetooth.Watcher != null)
+            if (_bluetooth != null)
             {
-                _bluetooth.Watcher.Added -= OnBluetoothAdded;
-                _bluetooth.Watcher.Updated -= OnBluetoothUpdated;
-                _bluetooth.Watcher.Removed -= OnBluetoothRemoved;
-            }
-            
-            _bluetooth.StopWatcher();
-        }
-
-        private void OnBluetoothRemoved(DeviceWatcher sender, DeviceInformationUpdate args)
-        {
-            DeviceInformation[] pending = Devices.Where(x => x.Id == args.Id).ToArray();
-            for (int i = 0; i < pending.Length; ++i) {
-                Devices.Remove(pending[i]);
+                _bluetooth.DeviceFound -= OnBluetoothAdded;
             }
         }
 
-        private void OnBluetoothUpdated(DeviceWatcher sender, DeviceInformationUpdate args)
+        private void OnBluetoothAdded(object sender, BluetoothDevice args)
         {
-            foreach (DeviceInformation d in Devices)
+            if (!Devices.Any(d => d.Id == args.Id))
             {
-                if (d.Id == args.Id) {
-                    d.Update(args);
-                    break;
-                }
+                Devices.Add(args);
             }
-        }
-
-        private void OnBluetoothAdded(DeviceWatcher sender, DeviceInformation args)
-        {
-            Devices.Add(args);
         }
 
         // --------------------------------------

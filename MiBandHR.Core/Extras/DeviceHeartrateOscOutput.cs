@@ -2,7 +2,8 @@ using System.ComponentModel;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using MiBand_Heartrate.Devices;
+using MiBandHR.Core.Configuration;
+using MiBandHR.Core.Devices;
 using OscCore;
 
 namespace MiBand_Heartrate.Extras; 
@@ -11,6 +12,7 @@ public class DeviceHeartrateOscOutput {
     Device _device;
 
     private UdpClient _udpClient;
+    private Socket _socket;
 
     private CancellationTokenSource _cancellationTokenSource;
 
@@ -81,6 +83,9 @@ public class DeviceHeartrateOscOutput {
         // Choose an unused port at random
         _udpClient = new UdpClient();
         _udpClient.Connect("localhost", 9000);
+
+        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        _socket.Connect("localhost", 9000);
             
         _device = device;
 
@@ -193,8 +198,9 @@ public class DeviceHeartrateOscOutput {
     }
 
     private void SendOSCMessages(string[] addresses, params object[] args) {
+        if (!ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled) return;
         foreach (var address in addresses) {
-            _udpClient.Send(new OscMessage(address, args).ToByteArray());
+            _socket.Send(new OscMessage(address, args).ToByteArray());
         }
     }
 }

@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31005.135
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MiBand-Heartrate", "MiBand-Heartrate\MiBand-Heartrate.csproj", "{53822A35-87B0-42CE-8680-B92532ACB3EB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MiBandHR.WPF", "MiBandHR.WPF\MiBandHR.WPF.csproj", "{53822A35-87B0-42CE-8680-B92532ACB3EB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiBandHR.Core", "MiBandHR.Core\MiBandHR.Core.csproj", "{FE4A5E71-1EA3-4227-B20E-4A32B5308794}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiBandHR.Cli", "MiBandHR.Cli\MiBandHR.Cli.csproj", "{AA5ECB04-0591-49E5-A202-9CBC5D937783}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{53822A35-87B0-42CE-8680-B92532ACB3EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{53822A35-87B0-42CE-8680-B92532ACB3EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{53822A35-87B0-42CE-8680-B92532ACB3EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE4A5E71-1EA3-4227-B20E-4A32B5308794}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE4A5E71-1EA3-4227-B20E-4A32B5308794}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE4A5E71-1EA3-4227-B20E-4A32B5308794}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE4A5E71-1EA3-4227-B20E-4A32B5308794}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA5ECB04-0591-49E5-A202-9CBC5D937783}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA5ECB04-0591-49E5-A202-9CBC5D937783}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA5ECB04-0591-49E5-A202-9CBC5D937783}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA5ECB04-0591-49E5-A202-9CBC5D937783}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

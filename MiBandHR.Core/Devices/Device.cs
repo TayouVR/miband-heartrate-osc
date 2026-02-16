@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace MiBand_Heartrate.Devices
+namespace MiBandHR.Core.Devices
 {
     public enum DeviceStatus { OFFLINE, ONLINE_UNAUTH, ONLINE_AUTH }
 
@@ -97,7 +97,7 @@ namespace MiBand_Heartrate.Devices
             }
         }
 
-        public object DeviceStatus { get; internal set; }
+        public string DeviceId { get; internal set; } = "";
 
         // --------------------------------------
 
