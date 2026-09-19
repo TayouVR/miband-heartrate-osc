@@ -12,15 +12,21 @@ public interface IGattCharacteristic
 
     /// <summary>
     /// Raised whenever the peripheral sends a notification/indication
-    /// for this characteristic. Subscribe before calling
-    /// <see cref="StartNotificationsAsync"/>.
+    /// for this characteristic. Call <see cref="SubscribeToValueChanges"/>
+    /// (and <see cref="StartNotificationsAsync"/>) before relying on it.
     /// </summary>
     event EventHandler<GattCharacteristicValueChangedEventArgs>? CharacteristicValueChanged;
+
+    /// <summary>Wires up the local event handler for value changes.</summary>
+    void SubscribeToValueChanges();
 
     /// <summary>Writes a value to the characteristic requesting a response (write with response).</summary>
     Task WriteValueWithResponseAsync(byte[] data);
 
-    /// <summary>Enables notifications/indications for this characteristic.</summary>
+    /// <summary>
+    /// Asks the peripheral to start sending notifications/indications for
+    /// this characteristic.
+    /// </summary>
     Task StartNotificationsAsync();
 
     /// <summary>Disables notifications/indications for this characteristic.</summary>

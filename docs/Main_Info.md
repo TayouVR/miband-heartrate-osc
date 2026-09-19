@@ -33,6 +33,38 @@ Frontends that enumerate devices use `IBluetoothScanner` (or the
 backwards-compatible `BLE` facade in `MiBandHR.Core/BLE.cs`, which the WPF
 project still uses).
 
+### Linux (BlueZ) quirks
+
+InTheHand.BluetoothLE's Linux backend has gaps that
+`Bluetooth/InTheHand/InTheHandGattCharacteristic.cs` +
+`Bluetooth/InTheHand/LinuxBlueZInterop.cs` work around:
+
+* Its `Properties` do not include BlueZ's `encrypt-notify` flag, so its
+  `StartNotificationsAsync` throws "Characteristic does not support Notify or
+  Indicate" for the Mi Band auth characteristic.
+* Descriptor access is not implemented (`GetDescriptorAsync` returns null), so
+  writing the CCCD (0x2902) manually — the approach used on Windows — is not
+  possible on Linux.
+* Starting notifications races against BlueZ connection settling and can
+  return the transient `org.bluez.Error.InProgress` D-Bus error.
+* InTheHand does **not** connect implicitly when resolving services on Linux
+  (unlike Windows, where `BluetoothLEDevice.FromIdAsync` connects). Calling
+  `GetPrimaryServiceAsync` on an unconnected device fails with
+  `org.bluez.Error.NotConnected`. `InTheHandBluetoothDevice` therefore
+  exposes `ConnectAsync()` (called automatically by the service-resolution
+  methods and by `MiBandDeviceBase.Authenticate`), which opens the GATT
+  connection and — via InTheHand's Linux backend — pairs if needed and waits
+  for BlueZ to resolve services.
+
+On Linux the wrapper extracts the native `IGattCharacteristic1` D-Bus proxy
+(from InTheHand's private backing field) and drives BlueZ directly:
+it first subscribes to the characteristic's `Value` property changes via
+`WatchPropertiesAsync`, then calls BlueZ `StartNotifyAsync` (which writes the
+CCCD itself) with bounded retry on `InProgress`. This mirrors the correct
+ordering (subscribe → start) and avoids both the property-bit gate and the
+reflection-on-private-method hack it replaces. On Windows and macOS the
+wrapper simply forwards to the standard InTheHand API.
+
 ## Protocol documentation
 
 The Mi Band authentication handshake is documented extensively in

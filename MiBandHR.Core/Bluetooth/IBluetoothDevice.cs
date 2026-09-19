@@ -14,7 +14,14 @@ public interface IBluetoothDevice
     /// <summary>True while a GATT connection to the device is established.</summary>
     bool IsConnected { get; }
 
-    /// <summary>Connects to the device (if needed) and resolves a primary GATT service by UUID.</summary>
+    /// <summary>
+    /// Establishes a GATT connection to the device (no-op when already connected).
+    /// Must be called before resolving services/characteristics on platforms
+    /// that do not connect implicitly (e.g. Linux/BlueZ).
+    /// </summary>
+    Task ConnectAsync();
+
+    /// <summary>Resolves a primary GATT service by UUID (connecting first if needed).</summary>
     Task<IGattService?> GetPrimaryServiceAsync(Guid uuid);
 
     /// <summary>Resolves all primary GATT services of the device.</summary>

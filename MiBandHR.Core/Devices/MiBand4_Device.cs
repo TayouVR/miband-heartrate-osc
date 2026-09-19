@@ -11,6 +11,11 @@ namespace MiBandHR.Core.Devices
     /// authentication key has to be extracted from the vendor ecosystem once
     /// (e.g. via freemyband.com or the huami-token tool) and is then supplied
     /// by the user as a 32 character hex string.
+    ///
+    /// Unlike Mi Band 2/3 the key is NOT sent to the band during the
+    /// handshake — the band already knows it. The host immediately asks for
+    /// the random challenge with <c>0x02 0x00</c> and answers with
+    /// <c>0x03 0x00 + AES_ECB(key, challenge)</c>.
     /// See docs/AUTHENTICATION.md for the full protocol description.
     /// </summary>
     public class MiBand4_Device : MiBandDeviceBase
@@ -23,6 +28,17 @@ namespace MiBandHR.Core.Devices
         }
 
         protected override byte[] GetAuthenticationKey() => _key;
+
+        /// <summary>
+        /// Mi Band 4/5 skips the key exchange: the initial command is a bare
+        /// random number request, <c>0x02 0x00</c>.
+        /// </summary>
+        protected override byte[] GetInitialAuthCommand() => new byte[] { 0x02, 0x00 };
+
+        /// <summary>
+        /// The encrypted challenge is returned with the <c>0x03 0x00</c> prefix.
+        /// </summary>
+        protected override byte[] EncryptedNumberResponsePrefix => new byte[] { 0x03, 0x00 };
 
         /// <summary>
         /// Accepts the key either as 32 character hex string (the format

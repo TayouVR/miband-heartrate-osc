@@ -59,10 +59,12 @@ So a response frame looks like `[0x10, <command>, <status>, <optional payload>]`
 
 ---
 
-## 3. The three-step handshake
+## 3. The handshake
 
-Both device generations run the *same* three-step handshake. The only
-difference is where the AES key comes from (see [section 4](#4-where-the-key-comes-from)).
+Both device generations run the same challenge/response scheme, but they
+**start it differently** (see [section 4](#4-where-the-key-comes-from)):
+
+### 3.1 Mi Band 2 / 3 – pairing with a fresh key
 
 ```text
 Host                                    Band
@@ -75,7 +77,7 @@ Host                                    Band
   | <-------- [10 03 01] ---------------  |  authenticated!
 ```
 
-### Step 1 – Send the key
+#### Step 1 – Send the key
 
 Host → Band:
 
@@ -83,24 +85,26 @@ Host → Band:
 [0x01, 0x08, K0, K1, ..., K15]
 ```
 
-The 18 byte frame contains the 16 byte authentication key. The band answers
-with `[0x10, 0x01, 0x01]` when it accepts the key (or `[0x10, 0x01, 0x04]`
-when it rejects it, which can happen on Mi Band 4+ if the key does not match
-the one stored in the band's flash).
+The 18 byte frame contains the freshly generated 16 byte authentication key.
+The band answers with `[0x10, 0x01, 0x01]` when it accepts the key (or
+`[0x10, 0x01, 0x04]` when it rejects it, e.g. because it is still paired to
+another device).
 
 In code this is
-[`MiBandDeviceBase.Authenticate()`](../MiBandHR.Core/Devices/MiBandDeviceBase.cs):
+[`MiBandDeviceBase.Authenticate()`](../MiBandHR.Core/Devices/MiBandDeviceBase.cs)
+together with
+[`MiBand2_3_Device.GetInitialAuthCommand()`](../MiBandHR.Core/Devices/MiBand2_3_Device.cs):
 
 ```csharp
 characteristic.CharacteristicValueChanged += OnAuthenticateNotify;
 await characteristic.StartNotificationsAsync();
-await Write(characteristic, Combine(new byte[] { 0x01, 0x08 }, GetAuthenticationKey()));
+await Write(characteristic, GetInitialAuthCommand()); // [0x01, 0x08, key]
 ```
 
 > **Important:** notifications on the auth characteristic **must** be enabled
-> before sending the key, otherwise the band's responses are lost.
+> before sending the first command, otherwise the band's responses are lost.
 
-### Step 2 – Request the random challenge
+#### Step 2 – Request the random challenge
 
 On `[0x10, 0x01, 0x01]` the host asks the band for a random number:
 
@@ -121,10 +125,10 @@ which makes the authentication resistant against replay attacks: recording an
 old "encrypted number" frame does not help an attacker, because the challenge
 will be different next time.
 
-### Step 3 – Answer the challenge
+#### Step 3 – Answer the challenge
 
 The host encrypts the 16 byte challenge with **AES-128 in ECB mode, no
-padding**, using the authentication key from step 1:
+padding**, using the authentication key:
 
 ```
 encrypted = AES128_ECB_encrypt(key, challenge)
@@ -132,10 +136,16 @@ encrypted = AES128_ECB_encrypt(key, challenge)
 
 and sends it back:
 
-Host → Band:
+Host → Band (Mi Band 2/3):
 
 ```
 [0x03, 0x08, E0, E1, ..., E15]
+```
+
+Host → Band (Mi Band 4/5):
+
+```
+[0x03, 0x00, E0, E1, ..., E15]
 ```
 
 ECB with a single 16 byte block is deterministic by nature, which is exactly
@@ -161,20 +171,50 @@ In code the response handling is
 
 ```csharp
 switch (value[1]) {
-    case 0x01 when value[2] == 0x01:                       // key accepted
-        _ = Write(characteristic, new byte[] { 0x02, 0x08 });
+    case 0x01:                                                   // key accepted (MB2/3)
+        if (value[2] == 0x01)
+            _ = Write(characteristic, RandomNumberRequestCommand); // [0x02, 0x08]
         break;
-    case 0x02: {                                           // challenge received
+    case 0x02: {                                                 // challenge received
         byte[] number = value.Skip(3).ToArray();
         byte[] encryptedNumber = EncryptAuthenticationNumber(number);
-        _ = Write(characteristic, Combine(new byte[] { 0x03, 0x08 }, encryptedNumber));
+        // [0x03, 0x08, ...] on MB2/3, [0x03, 0x00, ...] on MB4/5
+        _ = Write(characteristic, Combine(EncryptedNumberResponsePrefix, encryptedNumber));
         break;
     }
-    case 0x03 when value[2] == 0x01:                       // success
+    case 0x03 when value[2] == 0x01:                             // success
         Status = DeviceStatus.ONLINE_AUTH;
         break;
 }
 ```
+
+### 3.2 Mi Band 4 / 5 – challenge/response with a vendor key
+
+Mi Band 4+ **does not perform the key exchange**: the band was already
+provisioned with the 16 byte key when it was first paired with the official
+app, so sending `[0x01, 0x08, key]` is neither required nor desired. The host
+immediately asks for the random challenge:
+
+```text
+Host                                    Band
+  |                                       |
+  | -- 1. [02 00] ----------------------> |  request random number
+  | <-------- [10 02 01 <16 byte RN>] --  |  random challenge
+  | -- 2. [03 00 <AES(key, RN)>] -------> |  encrypted response
+  | <-------- [10 03 01] ---------------  |  authenticated!
+```
+
+Note the second byte: Mi Band 4/5 uses `0x00` instead of `0x08` in both
+command frames (`0x02 0x00`, `0x03 0x00`). This mirrors the implementation in
+[`MiBand4_Device`](../MiBandHR.Core/Devices/MiBand4_Device.cs):
+
+```csharp
+protected override byte[] GetInitialAuthCommand() => new byte[] { 0x02, 0x00 };
+protected override byte[] EncryptedNumberResponsePrefix => new byte[] { 0x03, 0x00 };
+```
+
+The challenge/response itself (steps 2–3 of the Mi Band 2/3 flow) is
+identical on both generations.
 
 and the AES helper:
 
@@ -266,8 +306,8 @@ Consequences:
   reconnects and even firmware updates (usually).
 * If the band is re-paired with the official app afterwards, the vendor app
   may rotate the key, invalidating the extracted one.
-* If the key is wrong, the band answers `[0x10, 0x01, 0x04]` in step 1 (or
-  `[0x10, 0x03, 0x04]` in step 3, depending on firmware) and disconnects.
+* If the key is wrong, the band answers `[0x10, 0x03, 0x04]` after the
+  encrypted response (or simply disconnects, depending on firmware).
 * Button confirmation is **not** required on Mi Band 4/5 – possession of the
   key is considered proof of ownership.
 
@@ -277,10 +317,13 @@ Consequences:
 
 | Symptom | Likely cause |
 |---------|--------------|
-| No response after sending `[0x01, 0x08, key]` | Notifications were not enabled on the auth characteristic before writing. |
-| `[0x10, 0x01, 0x04]` | Wrong key (Mi Band 4+) or band already paired to another device (Mi Band 2/3). |
+| `Characteristic does not support Notify or Indicate` when enabling notifications (Linux) | BlueZ reports the Mi Band auth characteristic with the flag `encrypt-notify` (notify over an encrypted link) instead of plain `notify`. InTheHand.BluetoothLE ≤ 4.0 does not map that flag into its `Properties`, so its `StartNotificationsAsync` refuses to subscribe. `InTheHandGattCharacteristic` works around this by calling BlueZ's `StartNotify` directly (BlueZ writes the CCCD itself). |
+| `Characteristic ... has no Client Characteristic Configuration descriptor` (Linux) | Descriptor access is not implemented in InTheHand's Linux backend (`GetDescriptorAsync` always returns null). Use `StartNotify` (handled by BlueZ) instead of writing the CCCD manually. |
+| No response after sending the first auth command | Notifications were not enabled on the auth characteristic before writing. |
+| `[0x10, 0x01, 0x04]` (Mi Band 2/3) | The band is still paired to another device/phone and rejects the new key. |
 | `[0x10, 0x03, 0x04]` | Challenge encrypted with the wrong key, or a race condition: another write to the auth characteristic happened between challenge and response. |
 | Band disconnects right after step 1 | On Mi Band 2/3 the button confirmation timed out. Touch the button when the band vibrates/shows the pairing prompt. |
+| Mi Band 4/5 doesn't answer `[0x01, 0x08, key]` at all | Wrong protocol flavour: Mi Band 4/5 must be started with `[0x02, 0x00]`, not with the Mi Band 2/3 key-exchange frame. |
 | Random disconnects a few seconds after auth | Some firmwares expect the client to start using the device quickly; enable heart rate notifications promptly after authentication. |
 | Nothing works on a "new" Mi Band 2/3 | The band still stores the key of a previous pairing. Factory reset it (or unpair it from the previous phone) so it accepts a fresh key. |
 
@@ -307,15 +350,19 @@ writes. After `ONLINE_AUTH` is reached, the application:
    `0000fee0-...` / characteristic `00000001-...` with `[0x01, 0x03, 0x19]`.
 2. Subscribes to heart rate notifications on the standard Heart Rate
    Measurement characteristic `0x2A37`.
-3. Starts a continuous measurement through the Heart Rate Control Point
-   `0x2A39`:
+3. Starts a measurement through the Heart Rate Control Point `0x2A39`:
    ```
-   [0x15, 0x02, 0x00]   stop one-shot measurement
-   [0x15, 0x01, 0x00]   stop continuous measurement
    [0x15, 0x01, 0x01]   start continuous measurement
+   [0x15, 0x02, 0x01]   start one-shot measurement
+   [0x15, 0x01, 0x00]   stop continuous measurement
+   [0x15, 0x02, 0x00]   stop one-shot measurement
    ```
-4. Sends a keep-alive ping `[0x16]` every 12 seconds, because the band stops
-   the continuous measurement after ~15 s of inactivity.
+4. Writes the trigger frame `[0x02]` to the sensor control characteristic
+   (mainly required by Mi Band 2/3 to actually begin sampling).
+5. (Continuous mode only) sends a keep-alive ping `[0x16]` every 12 seconds,
+   because the band stops the continuous measurement after ~15 s of
+   inactivity. In one-shot mode the monitor stops after the first received
+   value.
 
 Heart rate values arrive as two byte notifications on `0x2A37`: the first byte
 is a flags field (`0x00` = 8 bit heart rate value follows), the second byte is

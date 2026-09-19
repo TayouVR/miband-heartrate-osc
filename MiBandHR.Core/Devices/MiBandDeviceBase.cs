@@ -9,18 +9,22 @@ namespace MiBandHR.Core.Devices;
 /// (and newer) generations:
 ///
 /// <list type="bullet">
-///   <item><description>The three-step authentication handshake, see
+///   <item><description>The challenge/response part of the authentication
+///   handshake, see
 ///   <see href="https://leojrfs.github.io/writing/miband2-part1-auth/">Mi Band 2 Authentication by leojrfs</see>.
 ///   Full documentation lives in <c>docs/AUTHENTICATION.md</c>.</description></item>
 ///   <item><description>The heart rate monitoring session (start/stop/keep-alive).</description></item>
 /// </list>
 ///
-/// Concrete devices only provide the authentication key via
-/// <see cref="GetAuthenticationKey"/>:
+/// The generations differ in how the handshake is started:
 /// <list type="bullet">
-///   <item><description>Mi Band 2/3 generates a random key and pairs with the band.</description></item>
-///   <item><description>Mi Band 4/5 requires the key extracted from the vendor app
-///   (e.g. via freemyband.com or huami-token).</description></item>
+///   <item><description>Mi Band 2/3 sends a freshly generated key to the band
+///   first (<c>0x01 0x08 + key</c>) and asks for the random challenge with
+///   <c>0x02 0x08</c>.</description></item>
+///   <item><description>Mi Band 4/5 is bound to a vendor account; the band
+///   already knows the key, so the host immediately asks for the random
+///   challenge with <c>0x02 0x00</c> and answers with
+///   <c>0x03 0x00 + encrypted</c>.</description></item>
 /// </list>
 /// </summary>
 public abstract class MiBandDeviceBase : Device
@@ -61,6 +65,7 @@ public abstract class MiBandDeviceBase : Device
 
     private CancellationTokenSource? _keepAliveCts;
     private Task? _keepAliveTask;
+    private bool _continuous;
 
     protected MiBandDeviceBase(IBluetoothDevice device, DeviceModel model)
     {
@@ -74,6 +79,27 @@ public abstract class MiBandDeviceBase : Device
     /// Returns the 16 byte key used for the AES-128/ECB authentication handshake.
     /// </summary>
     protected abstract byte[] GetAuthenticationKey();
+
+    /// <summary>
+    /// The first command frame of the authentication handshake, i.e. what is
+    /// sent to the band right after enabling notifications on the auth
+    /// characteristic. Mi Band 2/3: <c>0x01 0x08 + key</c>;
+    /// Mi Band 4/5: <c>0x02 0x00</c>.
+    /// </summary>
+    protected abstract byte[] GetInitialAuthCommand();
+
+    /// <summary>
+    /// Command used to request the random challenge after the initial command
+    /// was acknowledged. Mi Band 2/3: <c>0x02 0x08</c>; Mi Band 4/5:
+    /// <c>0x02 0x08</c> (after the initial <c>0x02 0x00</c>).
+    /// </summary>
+    protected virtual byte[] RandomNumberRequestCommand => new byte[] { 0x02, 0x08 };
+
+    /// <summary>
+    /// Command prefix used when returning the encrypted challenge.
+    /// Mi Band 2/3: <c>0x03 0x08</c>; Mi Band 4/5: <c>0x03 0x00</c>.
+    /// </summary>
+    protected virtual byte[] EncryptedNumberResponsePrefix => new byte[] { 0x03, 0x08 };
 
     // ------------------------------------------------------------------
     // Connection lifecycle
@@ -105,13 +131,16 @@ public abstract class MiBandDeviceBase : Device
     // Authentication
     //
     // The handshake is documented extensively in docs/AUTHENTICATION.md.
-    // Short summary:
+    // Short summary (Mi Band 2/3 flavour):
     //   1. Host -> Band: [0x01, 0x08, <16 byte key>]        (send key)
     //   2. Band -> Host: [0x10, 0x01, 0x01]                  (key accepted)
     //      Host -> Band: [0x02, 0x08]                        (request random number)
     //   3. Band -> Host: [0x10, 0x02, 0x01, <16 byte number>] (random challenge)
     //      Host -> Band: [0x03, 0x08, AES_ECB(key, number)]  (encrypted response)
     //   4. Band -> Host: [0x10, 0x03, 0x01]                  (authentication complete)
+    //
+    // Mi Band 4/5 skips the key exchange: step 1 is [0x02, 0x00] and the
+    // encrypted response is [0x03, 0x00, AES_ECB(key, number)].
     // ------------------------------------------------------------------
 
     public override void Authenticate()
@@ -120,17 +149,24 @@ public abstract class MiBandDeviceBase : Device
         {
             try
             {
+                // Establish the GATT connection first. On some platforms
+                // (Windows) service discovery connects implicitly, on others
+                // (Linux/BlueZ) it does not — and the auth handshake would
+                // fail with "Not Connected".
+                await ConnectedDevice.ConnectAsync();
+
                 var service = await ConnectedDevice.GetPrimaryServiceAsync(AuthServiceUuid);
                 if (service == null) return;
 
                 var characteristic = await service.GetCharacteristicAsync(AuthCharacteristicUuid);
                 if (characteristic == null) return;
 
+                characteristic.SubscribeToValueChanges();
                 characteristic.CharacteristicValueChanged += OnAuthenticateNotify;
                 await characteristic.StartNotificationsAsync();
 
-                // Step 1: send the authentication key to the band.
-                await Write(characteristic, Combine(new byte[] { 0x01, 0x08 }, GetAuthenticationKey()));
+                // Kick off the handshake (generation specific).
+                await Write(characteristic, GetInitialAuthCommand());
             }
             catch (Exception e)
             {
@@ -149,23 +185,43 @@ public abstract class MiBandDeviceBase : Device
 
         switch (value[1])
         {
-            // Response to "send key" (0x01): key accepted -> request random number.
-            case 0x01 when value[2] == 0x01:
-                _ = Write(characteristic, new byte[] { 0x02, 0x08 });
+            // Response to the initial command (0x01 on MB2/3, 0x02 on MB4/5).
+            case 0x01:
+                if (value[2] == 0x01)
+                {
+                    _ = Write(characteristic, RandomNumberRequestCommand);
+                }
+                else
+                {
+                    Console.WriteLine("Authentication failed (key rejected).");
+                }
                 break;
 
-            // Response to "request random number" (0x02): encrypt the challenge and send it back.
+            // Response to the random number request: encrypt the challenge and send it back.
             case 0x02:
             {
+                if (value[2] != 0x01)
+                {
+                    Console.WriteLine("Authentication failed (random number request rejected).");
+                    break;
+                }
+
                 byte[] number = value.Skip(3).ToArray();
                 byte[] encryptedNumber = EncryptAuthenticationNumber(number);
-                _ = Write(characteristic, Combine(new byte[] { 0x03, 0x08 }, encryptedNumber));
+                _ = Write(characteristic, Combine(EncryptedNumberResponsePrefix, encryptedNumber));
                 break;
             }
 
-            // Response to "send encrypted number" (0x03): success -> authenticated.
-            case 0x03 when value[2] == 0x01:
-                Status = DeviceStatus.ONLINE_AUTH;
+            // Response to the encrypted number: success -> authenticated.
+            case 0x03:
+                if (value[2] == 0x01)
+                {
+                    Status = DeviceStatus.ONLINE_AUTH;
+                }
+                else
+                {
+                    Console.WriteLine("Authentication failed (encrypted number rejected).");
+                }
                 break;
         }
     }
@@ -190,19 +246,24 @@ public abstract class MiBandDeviceBase : Device
 
     /// <summary>
     /// Hook allowing Mi Band 2/3 to enable the raw sensor before measurements.
-    /// Default implementation does nothing (Mi Band 4+ does not need it).
+    /// Returns the sensor control characteristic when available, so that the
+    /// trigger frame (<c>0x02</c>) can be written after the measurement was
+    /// started. Default implementation does nothing and returns null
+    /// (Mi Band 4+ does not need it).
     /// </summary>
-    protected virtual Task PrepareHeartRateSensorAsync() => Task.CompletedTask;
+    protected virtual Task<IGattCharacteristic?> PrepareHeartRateSensorAsync()
+        => Task.FromResult<IGattCharacteristic?>(null);
 
     public override void StartHeartrateMonitor(bool continuous = false)
     {
         if (HeartrateMonitorStarted) return;
+        _continuous = continuous;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await PrepareHeartRateSensorAsync();
+                var sensorCharacteristic = await PrepareHeartRateSensorAsync();
 
                 var service = await ConnectedDevice.GetPrimaryServiceAsync(HeartRateServiceUuid);
                 if (service == null) return;
@@ -212,20 +273,33 @@ public abstract class MiBandDeviceBase : Device
 
                 if (_heartRateMeasurement != null)
                 {
+                    _heartRateMeasurement.SubscribeToValueChanges();
                     _heartRateMeasurement.CharacteristicValueChanged += OnHeartRateNotify;
                     await _heartRateMeasurement.StartNotificationsAsync();
                 }
 
                 if (_heartRateControlPoint != null)
                 {
-                    // Stop one-shot measurement, stop continuous measurement,
-                    // then start a continuous measurement.
-                    await Write(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x00 });
-                    await Write(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x00 });
-                    await Write(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x01 });
+                    if (continuous)
+                    {
+                        // Start a continuous measurement and keep it alive.
+                        await Write(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x01 });
 
-                    _keepAliveCts = new CancellationTokenSource();
-                    _keepAliveTask = RunHeartRateKeepAliveAsync(_keepAliveCts.Token);
+                        _keepAliveCts = new CancellationTokenSource();
+                        _keepAliveTask = RunHeartRateKeepAliveAsync(_keepAliveCts.Token);
+                    }
+                    else
+                    {
+                        // Single (one-shot) measurement.
+                        await Write(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x01 });
+                    }
+
+                    // Trigger the sensor (mainly required by Mi Band 2/3).
+                    if (sensorCharacteristic != null)
+                    {
+                        await Write(sensorCharacteristic, new byte[] { 0x02 });
+                    }
+
                     HeartrateMonitorStarted = true;
                 }
             }
@@ -249,6 +323,7 @@ public abstract class MiBandDeviceBase : Device
             if (_heartRateControlPoint != null)
             {
                 await Write(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x00 });
+                await Write(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x00 });
             }
         });
 
@@ -260,9 +335,15 @@ public abstract class MiBandDeviceBase : Device
         byte[] value = args.Value;
         // The first byte is a flags field; 0x00 means the heart rate is
         // encoded as a single byte in value[1].
-        if (value.Length == 2 && value[0] == 0)
+        if (value.Length == 2 && value[0] == 0 && value[1] > 0)
         {
             Heartrate = value[1];
+        }
+
+        // A one-shot measurement delivers exactly one value.
+        if (!_continuous)
+        {
+            StopHeartrateMonitor();
         }
     }
 

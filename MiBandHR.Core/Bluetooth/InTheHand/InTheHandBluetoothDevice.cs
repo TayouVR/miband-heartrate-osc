@@ -24,14 +24,31 @@ public sealed class InTheHandBluetoothDevice : IBluetoothDevice
 
     public bool IsConnected => _device.Gatt.IsConnected;
 
+    /// <summary>
+    /// Establishes the GATT connection if it is not already open.
+    /// On Linux (BlueZ) this also waits for BlueZ to resolve the device's
+    /// GATT services before returning.
+    /// </summary>
+    public async Task ConnectAsync()
+    {
+        if (_device.Gatt.IsConnected)
+        {
+            return;
+        }
+
+        await _device.Gatt.ConnectAsync();
+    }
+
     public async Task<IGattService?> GetPrimaryServiceAsync(Guid uuid)
     {
+        await ConnectAsync();
         var service = await _device.Gatt.GetPrimaryServiceAsync(BluetoothUuid.FromGuid(uuid));
         return service == null ? null : new InTheHandGattService(service);
     }
 
     public async Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync()
     {
+        await ConnectAsync();
         var services = await _device.Gatt.GetPrimaryServicesAsync();
         return services.Select(s => (IGattService)new InTheHandGattService(s)).ToList();
     }
