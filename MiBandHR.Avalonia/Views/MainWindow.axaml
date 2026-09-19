@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MiBandHR.Avalonia.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="MiBandHR.Avalonia.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/icon.ico"
+        Width="400" Height="420"
+        MinWidth="400" MinHeight="420"
+        Title="Heartrate Monitor">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <StackPanel>
+        <Grid Margin="5" VerticalAlignment="Top" ColumnDefinitions="*, 0.6*">
+            <TextBlock Grid.Column="0"
+                       VerticalAlignment="Center"
+                       Text="{Binding StatusText}" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1"
+                        IsVisible="{Binding ShowConnectButtons}">
+                    <Button Content="Manual Connect" Padding="10 5" Margin="5 5 0 5"
+                            Command="{Binding CommandConnect}"
+                            IsVisible="{Binding !UseAutoConnect}" />
+                    <Button Content="Auto Connect" Padding="10 5" Margin="5 5 0 5"
+                            Command="{Binding CommandAutoConnect}"
+                            IsVisible="{Binding UseAutoConnect}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1"
+                        IsVisible="{Binding IsConnected}">
+                    <Button Content="Disconnect" Padding="10 5" Margin="5 5 0 5"
+                            Command="{Binding CommandDisconnect}" />
+            </StackPanel>
+        </Grid>
+
+        <HeaderedContentControl Header="Heartrate" Margin="5">
+            <StackPanel Orientation="Vertical">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock FontSize="32" Margin="0 10" VerticalAlignment="Center"
+                               Text="{Binding Device.Heartrate, TargetNullValue=--, FallbackValue=--}" />
+                    <TextBlock FontSize="32" Margin="0 10" VerticalAlignment="Center">bpm</TextBlock>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center">Min: </TextBlock>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                    <TextBlock VerticalAlignment="Center"> bpm&#160;&#160;Max: </TextBlock>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                    <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
+                </StackPanel>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <HeaderedContentControl Header="Options" Margin="5">
+            <StackPanel Margin="5">
+                <CheckBox Margin="0 2" IsChecked="{Binding UseAutoConnect}">Use Auto Connect</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding ContinuousMode}">Enable continuous mode</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableCSVOutput}">Export data in CSV file</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableFileOutput}">Write realtime data in text file</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableOscOutput}">Send OSC to VRChat</CheckBox>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <Grid Height="40" Margin="0 15 0 10" ColumnDefinitions="*, *">
+            <Button Content="Start" Grid.Column="0" Margin="5 0"
+                    Command="{Binding CommandStart}" />
+            <Button Content="Stop" Grid.Column="1" Margin="5 0"
+                    Command="{Binding CommandStop}" />
+        </Grid>
+    </StackPanel>
+</Window>

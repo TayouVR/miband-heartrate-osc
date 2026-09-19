@@ -2,8 +2,8 @@
 [日本語](README.ja.md)
 
 Enable and monitor heartrate with Mi Band device on Windows 10.
-A cross-platform console app (`MiBandHR.Cli`) for Windows, Linux and macOS is
-also available; both frontends share the `MiBandHR.Core` library.
+Cross-platform frontends (Avalonia GUI + console app) for Windows, Linux and
+macOS are also available; all frontends share the `MiBandHR.Core` library.
 
 ![miband heartrate](https://github.com/Eryux/miband-heartrate/raw/master/mibandheatrate-screen.png "Mi Band Heartrate screen")
 ![miband heartrate newer version](https://github.com/TayouVR/miband-heartrate-osc/assets/31988415/9f7684bb-03ce-4dff-960e-78cacb0a31b4)
@@ -24,6 +24,18 @@ also available; both frontends share the `MiBandHR.Core` library.
 * .NET Framework 4.8 ([download](https://dotnet.microsoft.com/download/dotnet-framework/net48))
 * Windows 10 1703+ (Creators Update)
 * Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+
+#### GUI app (Avalonia, cross-platform)
+
+* .NET 10 SDK/runtime ([download](https://dotnet.microsoft.com/download))
+* Windows 10 1703+, Linux with BlueZ + a desktop environment (X11 or Wayland), or macOS
+* Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+
+Run it with:
+
+```bash
+dotnet run --project MiBandHR.Avalonia/MiBandHR.Avalonia.csproj
+```
 
 #### Console app (cross-platform)
 
@@ -200,9 +212,23 @@ If "Send OSC to VRChat" is enabled, this app will continue to send the following
 Or from the command line:
 
 ```bash
-dotnet build MiBandHR.Core/MiBandHR.Core.csproj   # cross-platform library
-dotnet build MiBandHR.Cli/MiBandHR.Cli.csproj     # cross-platform console app
-dotnet build MiBandHR.WPF/MiBandHR.WPF.csproj     # Windows WPF app
+dotnet build MiBandHR.Core/MiBandHR.Core.csproj         # cross-platform library
+dotnet build MiBandHR.Cli/MiBandHR.Cli.csproj           # cross-platform console app
+dotnet build MiBandHR.Avalonia/MiBandHR.Avalonia.csproj # cross-platform GUI
+dotnet build MiBandHR.WPF/MiBandHR.WPF.csproj           # Windows WPF app (legacy)
+```
+
+#### Nix / NixOS
+
+A `flake.nix` provides a dev shell with the .NET SDK and all native
+dependencies of the GUI (fontconfig, freetype, X11, ICU), as well as ready to
+run packages:
+
+```bash
+nix develop                            # enter the dev shell
+nix build .#miband-heartrate-gui       # GUI package (also .#default)
+nix run .#miband-heartrate-gui         # build & run the GUI
+nix build .#miband-heartrate-cli       # console package
 ```
 
 ### Project structure & documentation
@@ -215,10 +241,13 @@ dotnet build MiBandHR.WPF/MiBandHR.WPF.csproj     # Windows WPF app
   The Mi Band protocol itself (authentication handshake, heart rate session)
   lives in `MiBandHR.Core/Devices/`.
 * `MiBandHR.Cli` – cross-platform console frontend.
-* `MiBandHR.WPF` – original Windows-only WPF frontend.
+* `MiBandHR.Avalonia` – cross-platform GUI frontend (Avalonia port of the WPF app).
+* `MiBandHR.WPF` – original Windows-only WPF frontend (legacy).
 * [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) – extensive description of
   the Mi Band authentication handshake (key exchange, AES-128/ECB challenge
   response, per-generation differences, failure handling).
+* [`docs/Main_Info.md`](docs/Main_Info.md) – repository layout and
+  architecture notes.
 
 
 ### Useful links

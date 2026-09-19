@@ -6,6 +6,7 @@ public class AppConfig
     public DeviceConfig Device { get; set; } = new();
     public MonitoringConfig Monitoring { get; set; } = new();
     public OutputConfig Output { get; set; } = new();
+    public WindowConfig Window { get; set; } = new();
 }
 
 public class DeviceConfig
@@ -27,4 +28,17 @@ public class OutputConfig
     public bool FileEnabled { get; set; }
     public bool CsvEnabled { get; set; }
     public bool OscEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// Last known window geometry of the GUI frontend. Persisted in the shared
+/// TOML configuration so it works on every platform (the old WPF app stored
+/// this in the Windows registry).
+/// </summary>
+public class WindowConfig
+{
+    public int Left { get; set; } = -1;
+    public int Top { get; set; } = -1;
+    public int Width { get; set; } = 400;
+    public int Height { get; set; } = 420;
 }

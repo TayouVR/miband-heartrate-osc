@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MiBandHR.Avalonia.ViewModels"
+        xmlns:ble="using:MiBandHR.Core.Bluetooth"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="MiBandHR.Avalonia.Views.ConnectionWindow"
+        x:DataType="vm:ConnectionViewModel"
+        Icon="/Assets/icon.ico"
+        SizeToContent="WidthAndHeight"
+        CanResize="False"
+        Title="Heartrate Monitor - Connection">
+
+    <Design.DataContext>
+        <vm:ConnectionViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="10" MinWidth="380">
+        <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto" Margin="0 0 0 10">
+            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">Select your device</TextBlock>
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding Devices}"
+                      SelectedItem="{Binding SelectedDevice}"
+                      PlaceholderText="Scanning...">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate DataType="ble:IBluetoothDevice">
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Select the model</TextBlock>
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding DeviceModels}"
+                      SelectedItem="{Binding SelectedModel}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate DataType="vm:DeviceModelOption">
+                        <TextBlock Text="{Binding Description}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <Separator />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button Content="Cancel" Padding="10 5" Margin="5 10 5 5"
+                    Command="{Binding CommandCancel}" />
+            <Button Content="Connect" Padding="10 5" Margin="5 10 5 5"
+                    Command="{Binding CommandConnect}" />
+        </StackPanel>
+    </StackPanel>
+</Window>
