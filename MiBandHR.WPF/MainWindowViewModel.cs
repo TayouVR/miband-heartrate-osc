@@ -1,12 +1,13 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using MiBand_Heartrate.Extras;
 using MiBandHR.Core;
+using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
-using InTheHand.Bluetooth;
 
 namespace MiBand_Heartrate
 {
@@ -194,12 +195,12 @@ namespace MiBand_Heartrate
                         var defaultDeviceName = DefaultDeviceName;
                         var defaultDeviceAuthKey = DefaultDeviceAuthKey;
 
-                        async void OnBluetoothAdded(object sender, BluetoothDevice args) {
+                        async void OnBluetoothAdded(object sender, IBluetoothDevice args) {
                             if (args.Name != defaultDeviceName) return;
 
                             try {
-                                var services = await args.Gatt.GetPrimaryServicesAsync();
-                                if (!services.Any(srv => srv.Uuid == BluetoothUuid.FromShortId(0x180d))) return;
+                                var services = await args.GetPrimaryServicesAsync();
+                                if (!services.Any(srv => srv.Uuid == new Guid("0000180d-0000-1000-8000-00805f9b34fb"))) return;
                             } catch {
                                 return;
                             }

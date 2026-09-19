@@ -1,7 +1,8 @@
 using MiBandHR.Core;
+using MiBandHR.Core.Bluetooth;
+using MiBandHR.Core.Bluetooth.InTheHand;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
-using InTheHand.Bluetooth;
 using Spectre.Console;
 using System.Collections.Concurrent;
 using MiBand_Heartrate.Extras;
@@ -9,8 +10,10 @@ using MiBand_Heartrate.Extras;
 namespace MiBandHR.Cli;
 
 public class App {
+    private static readonly Guid HeartRateServiceUuid = new("0000180d-0000-1000-8000-00805f9b34fb");
+
     private readonly string? _configPath;
-    private readonly ConcurrentDictionary<string, BluetoothDevice> _discoveredDevices = new();
+    private readonly ConcurrentDictionary<string, IBluetoothDevice> _discoveredDevices = new();
     private Device? _device;
 
     public App(string? configPath) {
@@ -21,25 +24,12 @@ public class App {
         ConfigurationManager.Initialize(_configPath);
         AnsiConsole.Write(new FigletText("MiBand HR").Color(Color.Blue));
 
-        var ble = new BLE();
+        var ble = new InTheHandBluetoothScanner();
         ble.DeviceFound += async (s, d) => {
             try {
-                // Some devices might require connection to discover services, 
-                // but usually advertised services are available in the device object if the library supports it.
-                // InTheHand.BluetoothLE seems to require connection for GetPrimaryServicesAsync.
-                // However, we can check advertised ServiceUuids if available.
-                // If not, we might need a different approach or just filter by name if that's what was intended.
-                // The issue says "filter them for only ones, with the heartrate characteristic".
-                
-                // Let's try to see if we can get services without full connection or if d.Uuids is available.
-                // If this is slow, it might affect the UI.
-                
-                // Actually, heart rate service UUID is 0x180D.
-                // Characteristics are under services.
-                
-                // If d.Gatt.GetPrimaryServicesAsync() works here, it means it's doing discovery.
-                var services = await d.Gatt.GetPrimaryServicesAsync();
-                if (services.Any(srv => srv.Uuid == BluetoothUuid.FromShortId(0x180d))) {
+                // Filter for devices exposing the standard Heart Rate service (0x180D).
+                var services = await d.GetPrimaryServicesAsync();
+                if (services.Any(srv => srv.Uuid == HeartRateServiceUuid)) {
                     _discoveredDevices[d.Id] = d;
                 }
             } catch {
@@ -50,7 +40,7 @@ public class App {
         AnsiConsole.MarkupLine("[yellow]Scanning for devices...[/]");
         var scanTask = ble.ScanForDevicesAsync();
 
-        BluetoothDevice? selectedBluetoothDevice = null;
+        IBluetoothDevice? selectedBluetoothDevice = null;
 
         await AnsiConsole.Live(CreateDeviceTable())
             .StartAsync(async ctx => {
@@ -74,7 +64,7 @@ public class App {
 
         var deviceList = _discoveredDevices.Values.ToList();
         var choice = AnsiConsole.Prompt(
-            new SelectionPrompt<BluetoothDevice>()
+            new SelectionPrompt<IBluetoothDevice>()
                 .Title("Select a [green]Bluetooth Device[/]:")
                 .PageSize(10)
                 .AddChoices(deviceList)

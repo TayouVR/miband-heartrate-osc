@@ -1,0 +1,25 @@
+namespace MiBandHR.Core.Bluetooth;
+
+/// <summary>
+/// Platform-neutral representation of a BLE peripheral.
+/// </summary>
+public interface IBluetoothDevice
+{
+    /// <summary>Platform specific identifier of the device (MAC address on Linux, GUID-ish id on Windows).</summary>
+    string Id { get; }
+
+    /// <summary>Advertised (or cached) name of the device.</summary>
+    string Name { get; }
+
+    /// <summary>True while a GATT connection to the device is established.</summary>
+    bool IsConnected { get; }
+
+    /// <summary>Connects to the device (if needed) and resolves a primary GATT service by UUID.</summary>
+    Task<IGattService?> GetPrimaryServiceAsync(Guid uuid);
+
+    /// <summary>Resolves all primary GATT services of the device.</summary>
+    Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync();
+
+    /// <summary>Terminates the GATT connection.</summary>
+    void Disconnect();
+}

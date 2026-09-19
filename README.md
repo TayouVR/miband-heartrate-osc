@@ -2,6 +2,8 @@
 [日本語](README.ja.md)
 
 Enable and monitor heartrate with Mi Band device on Windows 10.
+A cross-platform console app (`MiBandHR.Cli`) for Windows, Linux and macOS is
+also available; both frontends share the `MiBandHR.Core` library.
 
 ![miband heartrate](https://github.com/Eryux/miband-heartrate/raw/master/mibandheatrate-screen.png "Mi Band Heartrate screen")
 ![miband heartrate newer version](https://github.com/TayouVR/miband-heartrate-osc/assets/31988415/9f7684bb-03ce-4dff-960e-78cacb0a31b4)
@@ -17,9 +19,34 @@ Enable and monitor heartrate with Mi Band device on Windows 10.
 
 ### Requirements
 
+#### WPF app (Windows only)
+
 * .NET Framework 4.8 ([download](https://dotnet.microsoft.com/download/dotnet-framework/net48))
 * Windows 10 1703+ (Creators Update)
 * Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+
+#### Console app (cross-platform)
+
+* .NET 10 SDK/runtime ([download](https://dotnet.microsoft.com/download))
+* Windows 10 1703+, Linux with BlueZ, or macOS
+* Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+
+Run it with:
+
+```bash
+dotnet run --project MiBandHR.Cli/MiBandHR.Cli.csproj
+# or with a custom config file:
+dotnet run --project MiBandHR.Cli/MiBandHR.Cli.csproj -- --config /path/to/config.toml
+```
+
+On Linux make sure your user is allowed to access Bluetooth (e.g. member of
+the `bluetooth` group or a suitable polkit rule) and that the adapter is
+powered (`bluetoothctl power on`).
+
+The configuration is stored as TOML. By default it lives in
+`%APPDATA%/miband-heartrate/config.toml` (Windows) or
+`~/.config/miband-heartrate/config.toml` (Linux/macOS) and is created with
+defaults on first run.
 
 
 ### Usage
@@ -155,11 +182,11 @@ If "Send OSC to VRChat" is enabled, this app will continue to send the following
 
 ### Build requirements
 
-* Windows SDK 10.0.18362.1
+* Windows SDK 10.0.18362.1 (only for the WPF frontend)
 
   Download : [Windows SDK and emulator archive](https://developer.microsoft.com/en-US/windows/downloads/sdk-archive/)
 * A suitable IDE, like Visual Studio 2022 or Jetbrains Rider
-* .Net 7.0 or newer SDK
+* .Net 10.0 SDK
 
 
 ### Build
@@ -169,6 +196,29 @@ If "Send OSC to VRChat" is enabled, this app will continue to send the following
 * Open `MiBand-Heartrate.sln` with Visual Studio
 
 * Right-click on MiBand-Heartrate solution and select generate
+
+Or from the command line:
+
+```bash
+dotnet build MiBandHR.Core/MiBandHR.Core.csproj   # cross-platform library
+dotnet build MiBandHR.Cli/MiBandHR.Cli.csproj     # cross-platform console app
+dotnet build MiBandHR.WPF/MiBandHR.WPF.csproj     # Windows WPF app
+```
+
+### Project structure & documentation
+
+* `MiBandHR.Core` – cross-platform library. All Bluetooth access goes through
+  the abstraction in `MiBandHR.Core/Bluetooth/`
+  (`IBluetoothScanner`, `IBluetoothDevice`, `IGattService`,
+  `IGattCharacteristic`), with `Bluetooth/InTheHand/` as the default
+  implementation backed by [InTheHand.BluetoothLE](https://www.nuget.org/packages/InTheHand.BluetoothLE).
+  The Mi Band protocol itself (authentication handshake, heart rate session)
+  lives in `MiBandHR.Core/Devices/`.
+* `MiBandHR.Cli` – cross-platform console frontend.
+* `MiBandHR.WPF` – original Windows-only WPF frontend.
+* [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) – extensive description of
+  the Mi Band authentication handshake (key exchange, AES-128/ECB challenge
+  response, per-generation differences, failure handling).
 
 
 ### Useful links

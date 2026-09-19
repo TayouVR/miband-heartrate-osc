@@ -2,17 +2,17 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Data;
 using System.Windows.Input;
-using InTheHand.Bluetooth;
 using MiBandHR.Core;
+using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Devices;
 
 namespace MiBand_Heartrate
 {
     public class ConnectionWindowViewModel : ViewModel
     {
-        ObservableCollection<BluetoothDevice> _devices = new ObservableCollection<BluetoothDevice>();
+        ObservableCollection<IBluetoothDevice> _devices = new ObservableCollection<IBluetoothDevice>();
 
-        public ObservableCollection<BluetoothDevice> Devices
+        public ObservableCollection<IBluetoothDevice> Devices
         {
             get { return _devices; }
             set
@@ -22,9 +22,9 @@ namespace MiBand_Heartrate
             }
         }
 
-        BluetoothDevice _selectedDevice;
+        IBluetoothDevice _selectedDevice;
 
-        public BluetoothDevice SelectedDevice
+        public IBluetoothDevice SelectedDevice
         {
             get { return _selectedDevice; }
             set
@@ -75,14 +75,14 @@ namespace MiBand_Heartrate
             }
         }
 
-        private async void OnBluetoothAdded(object sender, BluetoothDevice args)
+        private async void OnBluetoothAdded(object sender, IBluetoothDevice args)
         {
             if (Devices.Any(d => d.Id == args.Id)) return;
 
             try
             {
-                var services = await args.Gatt.GetPrimaryServicesAsync();
-                if (services.Any(srv => srv.Uuid == BluetoothUuid.FromShortId(0x180d)))
+                var services = await args.GetPrimaryServicesAsync();
+                if (services.Any(srv => srv.Uuid == new System.Guid("0000180d-0000-1000-8000-00805f9b34fb")))
                 {
                     Devices.Add(args);
                 }
