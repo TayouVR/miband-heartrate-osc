@@ -107,6 +107,7 @@ public abstract class MiBandDeviceBase : Device
 
     public override void Connect()
     {
+        BluetoothLog.Info($"Connecting to {Name}...");
         Disconnect();
         Status = DeviceStatus.ONLINE_UNAUTH;
         Authenticate();
@@ -118,6 +119,7 @@ public abstract class MiBandDeviceBase : Device
         if (ConnectedDevice.IsConnected)
         {
             ConnectedDevice.Disconnect();
+            BluetoothLog.Info($"Disconnected from {Name}.");
         }
         Status = DeviceStatus.OFFLINE;
     }
@@ -155,11 +157,20 @@ public abstract class MiBandDeviceBase : Device
                 // fail with "Not Connected".
                 await ConnectedDevice.ConnectAsync();
 
+                BluetoothLog.Info("Starting authentication handshake...");
                 var service = await ConnectedDevice.GetPrimaryServiceAsync(AuthServiceUuid);
-                if (service == null) return;
+                if (service == null)
+                {
+                    BluetoothLog.Error("Authentication failed: auth service (0xFEE1) not found.");
+                    return;
+                }
 
                 var characteristic = await service.GetCharacteristicAsync(AuthCharacteristicUuid);
-                if (characteristic == null) return;
+                if (characteristic == null)
+                {
+                    BluetoothLog.Error("Authentication failed: auth characteristic not found.");
+                    return;
+                }
 
                 characteristic.SubscribeToValueChanges();
                 characteristic.CharacteristicValueChanged += OnAuthenticateNotify;
@@ -170,7 +181,7 @@ public abstract class MiBandDeviceBase : Device
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Authentication failed: {e.Message}");
+                BluetoothLog.Error($"Authentication failed: {e.Message}");
             }
         });
     }
@@ -189,11 +200,12 @@ public abstract class MiBandDeviceBase : Device
             case 0x01:
                 if (value[2] == 0x01)
                 {
+                    BluetoothLog.Info("Key accepted, requesting random challenge...");
                     _ = Write(characteristic, RandomNumberRequestCommand);
                 }
                 else
                 {
-                    Console.WriteLine("Authentication failed (key rejected).");
+                    BluetoothLog.Error("Authentication failed (key rejected).");
                 }
                 break;
 
@@ -202,10 +214,11 @@ public abstract class MiBandDeviceBase : Device
             {
                 if (value[2] != 0x01)
                 {
-                    Console.WriteLine("Authentication failed (random number request rejected).");
+                    BluetoothLog.Error("Authentication failed (random number request rejected).");
                     break;
                 }
 
+                BluetoothLog.Info("Challenge received, sending encrypted response...");
                 byte[] number = value.Skip(3).ToArray();
                 byte[] encryptedNumber = EncryptAuthenticationNumber(number);
                 _ = Write(characteristic, Combine(EncryptedNumberResponsePrefix, encryptedNumber));
@@ -216,11 +229,12 @@ public abstract class MiBandDeviceBase : Device
             case 0x03:
                 if (value[2] == 0x01)
                 {
+                    BluetoothLog.Success("Authentication successful.");
                     Status = DeviceStatus.ONLINE_AUTH;
                 }
                 else
                 {
-                    Console.WriteLine("Authentication failed (encrypted number rejected).");
+                    BluetoothLog.Error("Authentication failed (encrypted number rejected).");
                 }
                 break;
         }
@@ -259,6 +273,10 @@ public abstract class MiBandDeviceBase : Device
         if (HeartrateMonitorStarted) return;
         _continuous = continuous;
 
+        BluetoothLog.Info(continuous
+            ? "Starting continuous heart rate monitoring..."
+            : "Starting single heart rate measurement...");
+
         _ = Task.Run(async () =>
         {
             try
@@ -266,7 +284,11 @@ public abstract class MiBandDeviceBase : Device
                 var sensorCharacteristic = await PrepareHeartRateSensorAsync();
 
                 var service = await ConnectedDevice.GetPrimaryServiceAsync(HeartRateServiceUuid);
-                if (service == null) return;
+                if (service == null)
+                {
+                    BluetoothLog.Error("Could not start monitoring: heart rate service (0x180D) not found.");
+                    return;
+                }
 
                 _heartRateControlPoint = await service.GetCharacteristicAsync(HeartRateControlPointUuid);
                 _heartRateMeasurement = await service.GetCharacteristicAsync(HeartRateMeasurementUuid);
@@ -301,11 +323,16 @@ public abstract class MiBandDeviceBase : Device
                     }
 
                     HeartrateMonitorStarted = true;
+                    BluetoothLog.Success("Heart rate monitoring started.");
+                }
+                else
+                {
+                    BluetoothLog.Error("Could not start monitoring: heart rate control point not found.");
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                BluetoothLog.Error($"Failed to start heart rate monitoring: {e.Message}");
             }
         });
     }
@@ -313,6 +340,8 @@ public abstract class MiBandDeviceBase : Device
     public override void StopHeartrateMonitor()
     {
         if (!HeartrateMonitorStarted) return;
+
+        BluetoothLog.Info("Stopping heart rate monitoring.");
 
         _keepAliveCts?.Cancel();
         _keepAliveCts = null;

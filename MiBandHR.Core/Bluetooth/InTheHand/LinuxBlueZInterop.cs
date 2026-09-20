@@ -77,11 +77,22 @@ internal static class LinuxBlueZInterop
                 {
                     await task;
                 }
+
+                if (attempt > 1)
+                {
+                    BluetoothLog.Success($"StartNotify succeeded after {attempt} attempts.");
+                }
                 return;
             }
             catch (Exception ex) when (IsBlueZInProgress(ex) && attempt < MaxStartNotifyAttempts)
             {
+                BluetoothLog.Retry($"StartNotify busy (org.bluez.Error.InProgress), retrying ({attempt}/{MaxStartNotifyAttempts})...");
                 await Task.Delay(StartNotifyRetryDelay);
+            }
+            catch (Exception ex) when (IsBlueZInProgress(ex))
+            {
+                BluetoothLog.Error($"StartNotify still busy after {MaxStartNotifyAttempts} attempts, giving up.");
+                throw;
             }
         }
     }

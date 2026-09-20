@@ -1,6 +1,5 @@
 using MiBandHR.Core;
 using MiBandHR.Core.Bluetooth;
-using MiBandHR.Core.Bluetooth.InTheHand;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
 using Spectre.Console;
@@ -24,7 +23,7 @@ public class App {
         ConfigurationManager.Initialize(_configPath);
         AnsiConsole.Write(new FigletText("MiBand HR").Color(Color.Blue));
 
-        var ble = new InTheHandBluetoothScanner();
+        var ble = BluetoothScannerFactory.CreateDefault();
         ble.DeviceFound += async (s, d) => {
             try {
                 // Filter for devices exposing the standard Heart Rate service (0x180D).

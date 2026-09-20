@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -39,10 +40,36 @@ public class MainViewModel : ViewModelBase
             _ => Device is { Status: DeviceStatus.ONLINE_AUTH, HeartrateMonitorStarted: false });
         CommandStop = new RelayCommand(_ => StopMonitoring(),
             _ => Device is { HeartrateMonitorStarted: true });
+
+        // Mirror the Bluetooth layer's log output into the on-screen log panel.
+        BluetoothLog.EntryLogged += OnBluetoothLogEntry;
     }
 
     /// <summary>The window this view model belongs to (set by the view).</summary>
     public MainWindow? View { get; set; }
+
+    /// <summary>Live Bluetooth activity log shown in the side panel.</summary>
+    public ObservableCollection<LogEntryViewModel> LogEntries { get; } = new();
+
+    /// <summary>Raised whenever a new log entry is added (used to auto-scroll).</summary>
+    public event Action? LogEntryAdded;
+
+    // Cap the log so a long retry loop does not grow memory unbounded.
+    private const int MaxLogEntries = 500;
+
+    private void OnBluetoothLogEntry(BluetoothLogEntry entry)
+    {
+        // Log events may arrive on background threads; marshal to the UI thread.
+        Dispatcher.UIThread.Post(() =>
+        {
+            LogEntries.Add(new LogEntryViewModel(entry));
+            while (LogEntries.Count > MaxLogEntries)
+            {
+                LogEntries.RemoveAt(0);
+            }
+            LogEntryAdded?.Invoke();
+        });
+    }
 
     public Device? Device
     {

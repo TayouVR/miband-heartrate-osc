@@ -17,7 +17,18 @@ public partial class MainWindow : Window
         _model = new MainViewModel { View = this };
         DataContext = _model;
 
+        // Keep the log pinned to the newest entry.
+        _model.LogEntryAdded += ScrollLogToEnd;
+
         RestoreWindowPosition();
+    }
+
+    private void ScrollLogToEnd()
+    {
+        if (LogList.ItemCount > 0)
+        {
+            LogList.ScrollIntoView(LogList.ItemCount - 1);
+        }
     }
 
     /// <summary>

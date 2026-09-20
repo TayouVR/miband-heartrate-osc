@@ -17,12 +17,16 @@ All Bluetooth access goes through the platform-neutral abstraction in
 `MiBandHR.Core/Bluetooth/`:
 
 * `IBluetoothScanner` / `IBluetoothDevice` / `IGattService` / `IGattCharacteristic`
-* Default implementation: `Bluetooth/InTheHand/` wrapping
-  [InTheHand.BluetoothLE](https://www.nuget.org/packages/InTheHand.BluetoothLE)
-  (Windows, Linux/BlueZ, macOS).
+* Backends (see "Platform-specific backends" below):
+  * `Bluetooth/Salar/` wrapping
+    [Salar.BluetoothLE](https://www.nuget.org/packages/Salar.BluetoothLE) —
+    **default on Linux** (BlueZ, connects without pairing).
+  * `Bluetooth/InTheHand/` wrapping
+    [InTheHand.BluetoothLE](https://www.nuget.org/packages/InTheHand.BluetoothLE) —
+    default on Windows and macOS.
 
 Device classes (`Devices/MiBand2_3_Device.cs`, `Devices/MiBand4_Device.cs`)
-only depend on the abstraction, never on `InTheHand.Bluetooth` directly.
+only depend on the abstraction, never on a concrete BLE stack directly.
 Shared protocol logic (authentication handshake, heart rate session,
 keep-alive) lives in `Devices/MiBandDeviceBase.cs`. To add support for another
 BLE stack, add a new folder under `Bluetooth/` implementing the four
@@ -31,39 +35,54 @@ constructors.
 
 Frontends that enumerate devices use `IBluetoothScanner` (or the
 backwards-compatible `BLE` facade in `MiBandHR.Core/BLE.cs`, which the WPF
-project still uses).
+project still uses). The concrete scanner is chosen by
+`Bluetooth/BluetoothScannerFactory.cs`: `SalarBluetoothScanner` on Linux,
+`InTheHandBluetoothScanner` elsewhere.
 
-### Linux (BlueZ) quirks
+### Platform-specific backends
 
-InTheHand.BluetoothLE's Linux backend has gaps that
-`Bluetooth/InTheHand/InTheHandGattCharacteristic.cs` +
-`Bluetooth/InTheHand/LinuxBlueZInterop.cs` work around:
+`BluetoothScannerFactory.CreateDefault()` selects the backend per platform:
 
-* Its `Properties` do not include BlueZ's `encrypt-notify` flag, so its
-  `StartNotificationsAsync` throws "Characteristic does not support Notify or
-  Indicate" for the Mi Band auth characteristic.
-* Descriptor access is not implemented (`GetDescriptorAsync` returns null), so
-  writing the CCCD (0x2902) manually — the approach used on Windows — is not
-  possible on Linux.
-* Starting notifications races against BlueZ connection settling and can
-  return the transient `org.bluez.Error.InProgress` D-Bus error.
-* InTheHand does **not** connect implicitly when resolving services on Linux
-  (unlike Windows, where `BluetoothLEDevice.FromIdAsync` connects). Calling
-  `GetPrimaryServiceAsync` on an unconnected device fails with
-  `org.bluez.Error.NotConnected`. `InTheHandBluetoothDevice` therefore
-  exposes `ConnectAsync()` (called automatically by the service-resolution
-  methods and by `MiBandDeviceBase.Authenticate`), which opens the GATT
-  connection and — via InTheHand's Linux backend — pairs if needed and waits
-  for BlueZ to resolve services.
+* **Linux** — `Bluetooth/Salar/`: `SalarBluetoothScanner` +
+  `SalarBluetoothDevice` + `SalarGattService` + `SalarGattCharacteristic`.
+  This is the **default on Linux** because Salar's BlueZ implementation
+  connects to devices **without pairing**, which the Mi Band 3 requires (see
+  below).
+* **Windows / macOS** — `Bluetooth/InTheHand/`: `InTheHandBluetoothScanner` +
+  `InTheHandBluetoothDevice` + `InTheHandGattService` +
+  `InTheHandGattCharacteristic`: thin wrappers over the InTheHand API.
 
-On Linux the wrapper extracts the native `IGattCharacteristic1` D-Bus proxy
-(from InTheHand's private backing field) and drives BlueZ directly:
-it first subscribes to the characteristic's `Value` property changes via
-`WatchPropertiesAsync`, then calls BlueZ `StartNotifyAsync` (which writes the
-CCCD itself) with bounded retry on `InProgress`. This mirrors the correct
-ordering (subscribe → start) and avoids both the property-bit gate and the
-reflection-on-private-method hack it replaces. On Windows and macOS the
-wrapper simply forwards to the standard InTheHand API.
+### Linux (BlueZ) backend
+
+The default Linux backend is **Salar.BluetoothLE** (`Bluetooth/Salar/`). Its
+BlueZ implementation talks to the system BlueZ daemon over D-Bus and, unlike
+InTheHand, connects to a device **without pairing** first. Pairing is neither
+required nor desired for Mi Band heart rate monitoring, and InTheHand's forced
+pre-connect pairing was the root cause of the repeated
+`org.bluez.Error.NotConnected` failures seen with Mi Band 3. Salar also avoids
+InTheHand's other Linux gaps (no `encrypt-notify` property handling, no
+descriptor access, notify-start `InProgress` race) because it drives BlueZ
+itself and writes the CCCD directly.
+
+The scanner owns a single `LinuxBleAdapter` and surfaces devices from its
+`ScanResultReceived` observable; `SalarBluetoothDevice` starts out "pending"
+(only the MAC address is known) and resolves the connected `IBleDevice` on the
+first `ConnectAsync()`. Notification subscription is a single call
+(`StartNotificationsAsync(Action<byte[]>)`) — no subscribe-then-start ordering
+or retry loop is needed.
+
+#### Legacy InTheHand/BlueZ backend (retained as fallback)
+
+The `BlueZ*` classes under `Bluetooth/InTheHand/` are an earlier Linux backend
+that drives BlueZ through the native `Linux.Bluetooth` D-Bus proxies extracted
+from InTheHand's objects (bridged via reflection in `BlueZNativeInterop`, so
+the cross-platform assembly keeps no compile-time dependency on the
+Linux-only package). They connect **without pairing** and wait for BlueZ
+`Connected` + `ServicesResolved`, and `BlueZGattCharacteristic` subscribes to
+the `Value` property before calling BlueZ `StartNotifyAsync` with bounded
+retry on `org.bluez.Error.InProgress` (`LinuxBlueZInterop`). They are no longer
+selected by default but remain available if the InTheHand backend is preferred
+on Linux.
 
 ## Protocol documentation
 

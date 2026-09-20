@@ -1,5 +1,4 @@
 using MiBandHR.Core.Bluetooth;
-using MiBandHR.Core.Bluetooth.InTheHand;
 
 namespace MiBandHR.Core;
 
@@ -7,18 +6,18 @@ namespace MiBandHR.Core;
 /// Backwards-compatible BLE scanner facade.
 ///
 /// New code should use <see cref="IBluetoothScanner"/> /
-/// <see cref="InTheHandBluetoothScanner"/> directly. This class keeps the
-/// original API surface for the WPF frontend while routing everything
-/// through the platform-neutral abstraction.
+/// <see cref="BluetoothScannerFactory"/> directly. This class keeps the
+/// original API surface for the frontends while routing everything through
+/// the platform-neutral abstraction and the platform-default backend
+/// (Salar.BluetoothLE on Linux, InTheHand.BluetoothLE elsewhere).
 /// </summary>
 public class BLE
 {
-    private readonly InTheHandBluetoothScanner _scanner = new();
+    private readonly IBluetoothScanner _scanner = BluetoothScannerFactory.CreateDefault();
 
     /// <summary>
     /// Raised for every discovered device. The device is exposed as the
-    /// platform-neutral <see cref="IBluetoothDevice"/>; WPF code can unwrap
-    /// the native instance via <see cref="InTheHandBluetoothDevice.NativeDevice"/>.
+    /// platform-neutral <see cref="IBluetoothDevice"/>.
     /// </summary>
     public event EventHandler<IBluetoothDevice>? DeviceFound
     {

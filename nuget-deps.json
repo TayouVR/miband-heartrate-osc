@@ -120,6 +120,11 @@
     "hash": "sha256-49+H/iFwp+AfCICvWcqo9us4CzxApPKC37Q5Eqrw+JU="
   },
   {
+    "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "version": "8.0.2",
+    "hash": "sha256-UfLfEQAkXxDaVPC7foE/J3FVEXd31Pu6uQIhTic3JgY="
+  },
+  {
     "pname": "Microsoft.NETCore.Platforms",
     "version": "1.1.0",
     "hash": "sha256-FeM40ktcObQJk4nMYShB61H/E8B7tIKfl9ObJ0IOcCM="
@@ -133,6 +138,11 @@
     "pname": "OscCore",
     "version": "1.0.5",
     "hash": "sha256-ZmRCfTjS6/hmGy5+jAIWhu8WTiL79TS5RjqovFm1nho="
+  },
+  {
+    "pname": "Salar.BluetoothLE",
+    "version": "1.2.0",
+    "hash": "sha256-f8UFa5FGe2Q+tlV9Hd5yjPU1GH2JH/pcSUOpSD24RIU="
   },
   {
     "pname": "SkiaSharp",
@@ -170,9 +180,14 @@
     "hash": "sha256-bBd8zRElNoxv793V1bpRbc6etWvLq3I9AKR0/gmhmBY="
   },
   {
+    "pname": "System.Reactive",
+    "version": "6.1.0",
+    "hash": "sha256-zACYoZmKxHo0qKY8FOVa7jIsw7dN7WjdXdRRV95qY2Y="
+  },
+  {
     "pname": "Tmds.DBus",
-    "version": "0.11.0",
-    "hash": "sha256-xNArjhSaEZcRiRB+mb9ZwUPQUqbLjRYt4JV2WUtM+hg="
+    "version": "0.20.0",
+    "hash": "sha256-xKKZLlv0X6bWenTvbxNp2J8N8XTAzomSlH2GnWCQ4Bg="
   },
   {
     "pname": "Tmds.DBus.Protocol",
