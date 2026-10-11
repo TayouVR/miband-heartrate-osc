@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using MiBandHR.Avalonia.Views;
 using MiBandHR.Core;
 using MiBandHR.Core.Bluetooth;
@@ -25,6 +26,8 @@ public class ConnectionViewModel : ViewModelBase
     private readonly BLE _bluetooth;
     private IBluetoothDevice? _selectedDevice;
     private DeviceModelOption _selectedModel;
+    private CancellationTokenSource? _scanCts;
+    private bool _isScanning;
 
     public ConnectionViewModel()
     {
@@ -32,16 +35,28 @@ public class ConnectionViewModel : ViewModelBase
 
         _bluetooth = new BLE();
         _bluetooth.DeviceFound += OnBluetoothAdded;
-        _ = _bluetooth.ScanForDevicesAsync();
 
         CommandConnect = new RelayCommand(_ => Connect(), _ => SelectedDevice != null || SelectedModel.Value == DeviceModel.DUMMY);
         CommandCancel = new RelayCommand(_ => View?.Close(null));
+        CommandRefresh = new RelayCommand(_ => StartScan());
+
+        StartScan();
     }
 
     /// <summary>The window this view model belongs to (set by the view).</summary>
     public ConnectionWindow? View { get; set; }
 
     public ObservableCollection<IBluetoothDevice> Devices { get; } = new();
+
+    public bool IsScanning
+    {
+        get => _isScanning;
+        private set
+        {
+            _isScanning = value;
+            OnPropertyChanged(nameof(IsScanning));
+        }
+    }
 
     /// <summary>
     /// Device models selectable in the UI (DUMMY is hidden, like in the WPF app).
@@ -85,6 +100,35 @@ public class ConnectionViewModel : ViewModelBase
 
     public RelayCommand CommandConnect { get; }
     public RelayCommand CommandCancel { get; }
+    public RelayCommand CommandRefresh { get; }
+
+    private void StartScan()
+    {
+        _scanCts?.Cancel();
+        _scanCts = new CancellationTokenSource();
+        IsScanning = true;
+
+        _ = ScanAsync(_scanCts.Token);
+    }
+
+    private async global::System.Threading.Tasks.Task ScanAsync(CancellationToken token)
+    {
+        try
+        {
+            await _bluetooth.ScanForDevicesAsync(token);
+        }
+        catch
+        {
+            // Ignore scan errors (e.g. cancelled); the list just stays as-is.
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+            {
+                IsScanning = false;
+            }
+        }
+    }
 
     private async void OnBluetoothAdded(object? sender, IBluetoothDevice args)
     {
@@ -113,6 +157,9 @@ public class ConnectionViewModel : ViewModelBase
 
     private async void Connect()
     {
+        _scanCts?.Cancel();
+        _bluetooth.DeviceFound -= OnBluetoothAdded;
+
         Device? device = null;
 
         switch (SelectedModel.Value)
@@ -137,8 +184,6 @@ public class ConnectionViewModel : ViewModelBase
                 break;
             }
         }
-
-        _bluetooth.DeviceFound -= OnBluetoothAdded;
 
         // Return the created device to the caller (MainWindow) via the dialog result.
         View?.Close(device);

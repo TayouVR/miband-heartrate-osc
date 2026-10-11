@@ -17,22 +17,35 @@
     </Design.DataContext>
 
     <StackPanel Margin="10" MinWidth="380">
-        <Grid ColumnDefinitions="150, *" RowDefinitions="Auto, Auto" Margin="0 0 0 10">
-            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">Select your device</TextBlock>
-            <ComboBox Grid.Row="0" Grid.Column="1"
-                      HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding Devices}"
-                      SelectedItem="{Binding SelectedDevice}"
-                      PlaceholderText="Scanning...">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate DataType="ble:IBluetoothDevice">
-                        <TextBlock Text="{Binding Name}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
+        <Grid ColumnDefinitions="*, Auto" Margin="0 0 0 5">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center">Select your device</TextBlock>
+            <Button Grid.Column="1" Content="Refresh" Padding="10 3"
+                    Command="{Binding CommandRefresh}" />
+        </Grid>
 
-            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">Select the model</TextBlock>
-            <ComboBox Grid.Row="1" Grid.Column="1"
+        <Grid MinHeight="120" Margin="0 0 0 10">
+            <ListBox ItemsSource="{Binding Devices}"
+                     SelectedItem="{Binding SelectedDevice}"
+                     HorizontalAlignment="Stretch">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="ble:IBluetoothDevice">
+                        <TextBlock Text="{Binding Name}" Padding="5" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel IsVisible="{Binding IsScanning}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="5">
+                <ProgressBar IsIndeterminate="True" Width="120" />
+                <TextBlock Text="Scanning..." HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <Grid ColumnDefinitions="150, *" Margin="0 0 0 10">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center">Select the model</TextBlock>
+            <ComboBox Grid.Column="1"
                       HorizontalAlignment="Stretch"
                       ItemsSource="{Binding DeviceModels}"
                       SelectedItem="{Binding SelectedModel}">

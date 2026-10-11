@@ -25,7 +25,10 @@ public class BLE
         remove => _scanner.DeviceFound -= value;
     }
 
-    public Task ScanForDevicesAsync() => _scanner.ScanForDevicesAsync();
+    public Task ScanForDevicesAsync() => ScanForDevicesAsync(CancellationToken.None);
+
+    public Task ScanForDevicesAsync(CancellationToken cancellationToken) =>
+        _scanner.ScanForDevicesAsync(cancellationToken);
 
     /// <summary>Writes a payload to a characteristic, swallowing transport errors.</summary>
     public static async Task Write(IGattCharacteristic characteristic, byte[] data)
