@@ -6,10 +6,7 @@
 |---------|---------|----------|
 | `MiBandHR.Core` | Cross-platform library: device protocol, authentication, heart rate monitoring, outputs (file/CSV/OSC), TOML configuration | net10.0, any OS |
 | `MiBandHR.Cli` | Console frontend using Spectre.Console | net10.0, any OS with BLE |
-| `MiBandHR.Avalonia` | Avalonia GUI frontend (port of the WPF app) | net10.0, Windows/Linux/macOS |
-| `MiBandHR.WPF` | Original Windows WPF frontend (legacy) | net9.0-windows |
-| `MiBand-Heartrate` | Legacy/empty (only `obj`) | – |
-| `AvaloniaApplication1*` | Abandoned experiment (only `obj`/`bin`) | – |
+| `MiBandHR.Avalonia` | Avalonia GUI frontend | net10.0, Windows/Linux/macOS |
 
 ## Bluetooth architecture
 
@@ -34,8 +31,8 @@ interfaces and pass the resulting `IBluetoothDevice` to the device
 constructors.
 
 Frontends that enumerate devices use `IBluetoothScanner` (or the
-backwards-compatible `BLE` facade in `MiBandHR.Core/BLE.cs`, which the WPF
-project still uses). The concrete scanner is chosen by
+backwards-compatible `BLE` facade in `MiBandHR.Core/BLE.cs`, which the Avalonia
+frontend still uses). The concrete scanner is chosen by
 `Bluetooth/BluetoothScannerFactory.cs`: `SalarBluetoothScanner` on Linux,
 `InTheHandBluetoothScanner` elsewhere.
 
@@ -90,16 +87,9 @@ The Mi Band authentication handshake is documented extensively in
 [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md). Update it whenever the
 authentication or heart rate protocol code changes.
 
-## Windows-only code
-
-`MiBandHR.WPF/Extras/RegistrySetting.cs` (window position persistence) is
-Windows-only and intentionally lives in the WPF project, not in Core. The
-Avalonia frontend persists window geometry in the shared TOML configuration
-(`Window` section of `AppConfig`) instead, so it works on every platform.
-
 ## GUI frontend (Avalonia)
 
-`MiBandHR.Avalonia` is a port of the WPF app to
+`MiBandHR.Avalonia` is the GUI frontend built on
 [Avalonia UI](https://avaloniaui.net/) (Fluent theme). Structure:
 
 * `Views/` – AXAML windows (`MainWindow`, `ConnectionWindow`,
@@ -119,7 +109,6 @@ Avalonia frontend persists window geometry in the shared TOML configuration
 dotnet build MiBandHR.Core/MiBandHR.Core.csproj         # library
 dotnet build MiBandHR.Cli/MiBandHR.Cli.csproj           # console app
 dotnet build MiBandHR.Avalonia/MiBandHR.Avalonia.csproj # cross-platform GUI
-dotnet build MiBandHR.WPF/MiBandHR.WPF.csproj           # Windows-only, needs Windows or EnableWindowsTargeting
 ```
 
 There is no test project; verification is done by building and by running the

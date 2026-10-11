@@ -70,8 +70,7 @@
             dotnet-sdk = dotnet;
             dotnet-runtime = pkgs.dotnet-runtime_10;
 
-            # The solution also contains the Windows-only WPF project; make
-            # sure only cross-platform projects are restored/built.
+            # Make sure only cross-platform projects are restored/built.
             dotnetRestoreFlags = [ "-p:EnableWindowsTargeting=false" ];
 
             runtimeDeps = guiRuntimeDeps;
