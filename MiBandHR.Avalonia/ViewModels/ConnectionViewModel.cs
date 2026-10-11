@@ -21,8 +21,6 @@ public record DeviceModelOption(DeviceModel Value, string Description)
 
 public class ConnectionViewModel : ViewModelBase
 {
-    private static readonly Guid HeartRateServiceUuid = new("0000180d-0000-1000-8000-00805f9b34fb");
-
     private readonly BLE _bluetooth;
     private IBluetoothDevice? _selectedDevice;
     private DeviceModelOption _selectedModel;
@@ -130,29 +128,16 @@ public class ConnectionViewModel : ViewModelBase
         }
     }
 
-    private async void OnBluetoothAdded(object? sender, IBluetoothDevice args)
+    private void OnBluetoothAdded(object? sender, IBluetoothDevice args)
     {
         // ObservableCollection must be touched from the UI thread.
-        if (Devices.Any(d => d.Id == args.Id)) return;
-
-        try
+        global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            var services = await args.GetPrimaryServicesAsync();
-            if (services.Any(srv => srv.Uuid == HeartRateServiceUuid))
+            if (Devices.All(d => d.Id != args.Id))
             {
-                global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    if (Devices.All(d => d.Id != args.Id))
-                    {
-                        Devices.Add(args);
-                    }
-                });
+                Devices.Add(args);
             }
-        }
-        catch
-        {
-            // Ignore devices that fail service discovery
-        }
+        });
     }
 
     private async void Connect()
