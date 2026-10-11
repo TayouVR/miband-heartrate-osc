@@ -1,3 +1,5 @@
+#if !WINDOWS
+
 using Salar.BluetoothLE;
 using Salar.BluetoothLE.Core.Enums;
 using Salar.BluetoothLE.Core.Models;
@@ -78,3 +80,5 @@ public sealed class SalarBluetoothScanner : IBluetoothScanner
         DeviceFound?.Invoke(this, new SalarBluetoothDevice(_adapter, result.Address, result.Name ?? string.Empty));
     }
 }
+
+#endif

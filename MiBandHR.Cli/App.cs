@@ -23,7 +23,8 @@ public class App {
         ConfigurationManager.Initialize(_configPath);
         AnsiConsole.Write(new FigletText("MiBand HR").Color(Color.Blue));
 
-        var ble = BluetoothScannerFactory.CreateDefault();
+        var ble = BluetoothScannerFactory.Create(
+            ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend);
         ble.DeviceFound += async (s, d) => {
             try {
                 // Filter for devices exposing the standard Heart Rate service (0x180D).

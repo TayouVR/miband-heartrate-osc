@@ -67,6 +67,14 @@
                     <CheckBox Margin="0 2" IsChecked="{Binding EnableCSVOutput}">Export data in CSV file</CheckBox>
                     <CheckBox Margin="0 2" IsChecked="{Binding EnableFileOutput}">Write realtime data in text file</CheckBox>
                     <CheckBox Margin="0 2" IsChecked="{Binding EnableOscOutput}">Send OSC to VRChat</CheckBox>
+
+                    <Grid Margin="0 6 0 2" ColumnDefinitions="120, *">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center">Bluetooth backend</TextBlock>
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding AvailableBackends}"
+                                  SelectedItem="{Binding SelectedBluetoothBackend}" />
+                    </Grid>
                 </StackPanel>
             </HeaderedContentControl>
 

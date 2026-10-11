@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
@@ -17,6 +18,12 @@ namespace MiBandHR.Avalonia.ViewModels;
 public class MainViewModel : ViewModelBase
 {
     private static readonly Guid HeartRateServiceUuid = new("0000180d-0000-1000-8000-00805f9b34fb");
+
+    /// <summary>Display wrapper for a selectable Bluetooth backend.</summary>
+    public sealed record BluetoothBackendOption(BluetoothBackend Value, string Label)
+    {
+        public override string ToString() => Label;
+    }
 
     private Device? _device;
     private BLE? _autoConnectBluetooth;
@@ -132,6 +139,34 @@ public class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(UseAutoConnect));
         }
     }
+
+    /// <summary>Backends selectable on the current platform.</summary>
+    public IReadOnlyList<BluetoothBackendOption> AvailableBackends { get; } =
+        global::MiBandHR.Core.Bluetooth.BluetoothScannerFactory.AvailableBackends()
+            .Select(b => new BluetoothBackendOption(b, DisplayName(b)))
+            .ToList();
+
+    public BluetoothBackendOption SelectedBluetoothBackend
+    {
+        get => AvailableBackends.FirstOrDefault(o => o.Value == ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend)
+               ?? AvailableBackends.First();
+        set
+        {
+            if (value == null) return;
+            ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend = value.Value;
+            ConfigurationManager.Instance.SaveConfiguration();
+            OnPropertyChanged(nameof(SelectedBluetoothBackend));
+        }
+    }
+
+    private static string DisplayName(BluetoothBackend backend) => backend switch
+    {
+        BluetoothBackend.Auto => "Auto",
+        BluetoothBackend.Windows => "Windows (WinRT)",
+        BluetoothBackend.InTheHand => "InTheHand",
+        BluetoothBackend.Salar => "Salar (Linux)",
+        _ => backend.ToString()
+    };
 
     public bool ContinuousMode
     {
