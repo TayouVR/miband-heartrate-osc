@@ -180,11 +180,11 @@ public abstract class MiBandDeviceBase : Device
                 characteristic.SubscribeToValueChanges();
                 characteristic.CharacteristicValueChanged += OnAuthenticateNotify;
                 await characteristic.StartNotificationsAsync();
-                BluetoothLog.Info("Notifications started on auth characteristic, sending initial command...");
+                //BluetoothLog.Info("Notifications started on auth characteristic, sending initial command...");
 
                 // Kick off the handshake (generation specific).
                 var initialCommand = GetInitialAuthCommand();
-                BluetoothLog.Info($"Initial auth command: [{string.Join(" ", initialCommand.Select(b => b.ToString("X2")))}]");
+                //BluetoothLog.Info($"Initial auth command: [{string.Join(" ", initialCommand.Select(b => b.ToString("X2")))}]");
                 _authState = UsesKeyExchange ? AuthState.SentKey : AuthState.RequestedChallenge;
                 await Write(characteristic, initialCommand);
             }
@@ -201,7 +201,7 @@ public abstract class MiBandDeviceBase : Device
         if (sender is not IGattCharacteristic characteristic) return;
 
         byte[] value = args.Value;
-        BluetoothLog.Info($"Auth notification received ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
+        //BluetoothLog.Info($"Auth notification received ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
 
         // Responses are at least 3 bytes: [0x10, command, status].
         if (value.Length < 3) return;
@@ -458,7 +458,7 @@ public abstract class MiBandDeviceBase : Device
     {
         try
         {
-            BluetoothLog.Info($"Writing {data.Length} bytes to {characteristic.Uuid}: [{string.Join(" ", data.Select(b => b.ToString("X2")))}]");
+            //BluetoothLog.Info($"Writing {data.Length} bytes to {characteristic.Uuid}: [{string.Join(" ", data.Select(b => b.ToString("X2")))}]");
             await characteristic.WriteValueWithoutResponseAsync(data);
         }
         catch (Exception e)
@@ -479,7 +479,7 @@ public abstract class MiBandDeviceBase : Device
     {
         try
         {
-            BluetoothLog.Info($"Writing {data.Length} bytes to {characteristic.Uuid}: [{string.Join(" ", data.Select(b => b.ToString("X2")))}]");
+            //BluetoothLog.Info($"Writing {data.Length} bytes to {characteristic.Uuid}: [{string.Join(" ", data.Select(b => b.ToString("X2")))}]");
             await characteristic.WriteValueWithResponseAsync(data);
         }
         catch (Exception e)

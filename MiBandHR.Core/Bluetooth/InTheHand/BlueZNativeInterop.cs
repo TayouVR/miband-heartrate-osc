@@ -276,7 +276,7 @@ internal static class BlueZNativeInterop
         foreach (var descriptor in descriptors)
         {
             var uuid = await ReadDescriptorUuidAsync(descriptor);
-            BluetoothLog.Info($"  Descriptor: {uuid}");
+            // BluetoothLog.Info($"  Descriptor: {uuid}");
         }
     }
 

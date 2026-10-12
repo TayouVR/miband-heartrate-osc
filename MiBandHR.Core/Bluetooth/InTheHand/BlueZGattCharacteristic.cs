@@ -41,7 +41,7 @@ public sealed class BlueZGattCharacteristic : IGattCharacteristic
 
         var flags = await BlueZNativeInterop.GetCharacteristicFlagsAsync(_nativeCharacteristic);
         var notifying = await BlueZNativeInterop.GetNotifyingAsync(_nativeCharacteristic);
-        BluetoothLog.Info($"Notifications enabled on {Uuid} (flags: {flags}, notifying: {notifying}).");
+        //BluetoothLog.Info($"Notifications enabled on {Uuid} (flags: {flags}, notifying: {notifying}).");
 
         // Work around a BlueZ quirk where some peripherals don't start notifying
         // after StartNotify alone (e.g. the Mi Band HR characteristic).
