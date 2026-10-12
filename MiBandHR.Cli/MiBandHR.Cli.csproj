@@ -10,6 +10,13 @@
         <DefineConstants Condition="$(TargetFramework.Contains('-windows'))">$(DefineConstants);WINDOWS</DefineConstants>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <PublishAot>true</PublishAot>
+    </PropertyGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\MiBandHR.Core\MiBandHR.Core.csproj" />
     </ItemGroup>

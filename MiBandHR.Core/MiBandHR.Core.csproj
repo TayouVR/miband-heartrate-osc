@@ -10,6 +10,12 @@
         <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <SelfContained>true</SelfContained>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <PublishAot>true</PublishAot>
+    </PropertyGroup>
+
     <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
         <Capabilities Include="bluetooth" />
     </ItemGroup>
