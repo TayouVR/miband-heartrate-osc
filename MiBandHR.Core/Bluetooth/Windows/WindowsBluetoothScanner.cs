@@ -1,25 +1,23 @@
 #if WINDOWS
 
-using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Devices.Bluetooth;
-using Windows.Devices.Bluetooth.Advertisement;
+using Windows.Devices.Enumeration;
 
 namespace MiBandHR.Core.Bluetooth.Windows;
 
 /// <summary>
 /// <see cref="IBluetoothScanner"/> backed by the original
 /// <c>Windows.Devices.Bluetooth</c> (WinRT) stack, using a
-/// <see cref="BluetoothLEAdvertisementWatcher"/> to discover nearby BLE devices
-/// and <see cref="BluetoothLEDevice.FromBluetoothAddressAsync"/> to connect.
+/// <see cref="DeviceWatcher"/> to enumerate paired BLE devices.
 ///
-/// This is the Windows-only implementation that mirrors the original
-/// <c>MiBand-Heartrate</c> behaviour (the code the portable backends replaced).
+/// This mirrors the original <c>MiBand-Heartrate</c> behaviour: it watches for
+/// already-paired BLE devices rather than scanning for advertisements.
 /// </summary>
 public sealed class WindowsBluetoothScanner : IBluetoothScanner
 {
     private static readonly TimeSpan ScanDuration = TimeSpan.FromSeconds(10);
 
-    private BluetoothLEAdvertisementWatcher? _watcher;
+    private DeviceWatcher? _watcher;
 
     public event EventHandler<IBluetoothDevice>? DeviceFound;
 
@@ -28,24 +26,23 @@ public sealed class WindowsBluetoothScanner : IBluetoothScanner
         BluetoothLog.Info("Starting scan for BLE devices (Windows)...");
         try
         {
-            var received = new System.Collections.Generic.HashSet<ulong>();
+            var foundDevices = new System.Collections.Generic.HashSet<string>();
 
-            _watcher = new BluetoothLEAdvertisementWatcher
-            {
-                ScanningMode = BluetoothLEScanningMode.Active,
-                SignalStrengthFilter = { SamplingInterval = TimeSpan.FromMilliseconds(0) }
-            };
+            _watcher = DeviceInformation.CreateWatcher(
+                BluetoothLEDevice.GetDeviceSelectorFromPairingState(true),
+                null,
+                DeviceInformationKind.AssociationEndpoint
+            );
 
-            _watcher.Received += (w, args) =>
+            _watcher.Added += (sender, args) =>
             {
-                ulong address = args.BluetoothAddress;
-                if (!received.Add(address))
+                if (!foundDevices.Add(args.Id))
                 {
                     return;
                 }
 
-                var name = args.Advertisement.LocalName;
-                DeviceFound?.Invoke(this, new WindowsBluetoothDevice(address, string.IsNullOrEmpty(name) ? "Unknown" : name));
+                var name = args.Name;
+                DeviceFound?.Invoke(this, new WindowsBluetoothDevice(args.Id, string.IsNullOrEmpty(name) ? "Unknown" : name));
             };
 
             _watcher.Start();
@@ -60,11 +57,14 @@ public sealed class WindowsBluetoothScanner : IBluetoothScanner
             }
             finally
             {
-                _watcher.Stop();
+                if (_watcher.Status == DeviceWatcherStatus.Started)
+                {
+                    _watcher.Stop();
+                }
                 _watcher = null;
             }
 
-            BluetoothLog.Info("Scan finished (Windows).");
+            BluetoothLog.Info($"Scan finished (Windows), {foundDevices.Count} device(s) found.");
         }
         catch (Exception e)
         {

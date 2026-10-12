@@ -9,21 +9,21 @@ namespace MiBandHR.Core.Bluetooth.Windows;
 /// <see cref="IBluetoothDevice"/> backed by the original
 /// <c>Windows.Devices.Bluetooth</c> (WinRT) stack.
 ///
-/// Devices are looked up by Bluetooth address (the value reported by the
-/// <see cref="WindowsBluetoothScanner"/>'s advertisement watcher).
+/// Devices are looked up by their DeviceInformation.Id (the value reported by the
+/// <see cref="WindowsBluetoothScanner"/>'s DeviceWatcher).
 /// </summary>
 public sealed class WindowsBluetoothDevice : IBluetoothDevice
 {
-    private readonly ulong _bluetoothAddress;
+    private readonly string _deviceId;
     private BluetoothLEDevice? _device;
 
-    public WindowsBluetoothDevice(ulong bluetoothAddress, string name)
+    public WindowsBluetoothDevice(string deviceId, string name)
     {
-        _bluetoothAddress = bluetoothAddress;
+        _deviceId = deviceId;
         Name = name;
     }
 
-    public string Id => _bluetoothAddress.ToString();
+    public string Id => _deviceId;
 
     public string Name { get; }
 
@@ -37,7 +37,7 @@ public sealed class WindowsBluetoothDevice : IBluetoothDevice
         }
 
         BluetoothLog.Info($"Connecting to {Name} ({Id})...");
-        var device = await BluetoothLEDevice.FromBluetoothAddressAsync(_bluetoothAddress);
+        var device = await BluetoothLEDevice.FromIdAsync(_deviceId);
         if (device == null)
         {
             throw new InvalidOperationException("Could not open the Bluetooth LE device.");
