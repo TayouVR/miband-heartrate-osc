@@ -42,6 +42,13 @@ public sealed class WindowsGattCharacteristic : IGattCharacteristic
         await _characteristic.WriteValueAsync(writer.DetachBuffer(), GattWriteOption.WriteWithResponse);
     }
 
+    public async Task WriteValueWithoutResponseAsync(byte[] data)
+    {
+        using var writer = new DataWriter();
+        writer.WriteBytes(data);
+        await _characteristic.WriteValueAsync(writer.DetachBuffer(), GattWriteOption.WriteWithoutResponse);
+    }
+
     public async Task StartNotificationsAsync()
     {
         await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(

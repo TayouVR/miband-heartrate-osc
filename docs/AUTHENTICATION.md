@@ -332,8 +332,13 @@ General notes:
 * The handshake is time sensitive. Sending the next step only after receiving
   the previous response (as done in `OnAuthenticateNotify`) is the most
   reliable approach.
-* The auth characteristic is write-with-response. Using write-without-response
-  can silently lose frames on some Bluetooth stacks.
+* The Huami auth (`00000009-...`) and sensor (`00000001-...`) characteristics
+  only support **write-without-response**, so every auth/sensor command frame is
+  written without response. On Linux the backend omits the BlueZ `type` option
+  and lets BlueZ auto-select the write procedure from the characteristic flags
+  (the same behaviour as btleplug/bluez-async, which the reference Rust
+  implementation relies on). The standard Heart Rate Control Point (`0x2A39`)
+  is written **with response**.
 * Everything described here is independent of the Bluetooth transport. The
   `MiBandHR.Core.Bluetooth` abstraction only needs to provide GATT reads,
   writes and notifications – any BLE stack that can do that (InTheHand,

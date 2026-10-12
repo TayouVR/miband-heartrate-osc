@@ -45,6 +45,11 @@ public sealed class SalarGattCharacteristic : IGattCharacteristic
         await _characteristic.WriteAsync(data, WriteType.WithResponse);
     }
 
+    public async Task WriteValueWithoutResponseAsync(byte[] data)
+    {
+        await _characteristic.WriteAsync(data, WriteType.WithoutResponse);
+    }
+
     public async Task StartNotificationsAsync()
     {
         await _characteristic.StartNotificationsAsync(value =>

@@ -41,6 +41,9 @@ public sealed class BlueZGattCharacteristic : IGattCharacteristic
     public Task WriteValueWithResponseAsync(byte[] data)
         => BlueZNativeInterop.WriteValueAsync(_nativeCharacteristic, data);
 
+    public Task WriteValueWithoutResponseAsync(byte[] data)
+        => BlueZNativeInterop.WriteValueWithoutResponseAsync(_nativeCharacteristic, data);
+
     public async Task StartNotificationsAsync()
     {
         // Subscribe first so no notification is lost, then start notify.

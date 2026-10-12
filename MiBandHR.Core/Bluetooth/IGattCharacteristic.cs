@@ -24,6 +24,13 @@ public interface IGattCharacteristic
     Task WriteValueWithResponseAsync(byte[] data);
 
     /// <summary>
+    /// Writes a value to the characteristic without waiting for a response
+    /// (write without response / signed write). The Mi Band authentication
+    /// protocol requires this write type for all command frames.
+    /// </summary>
+    Task WriteValueWithoutResponseAsync(byte[] data);
+
+    /// <summary>
     /// Asks the peripheral to start sending notifications/indications for
     /// this characteristic.
     /// </summary>

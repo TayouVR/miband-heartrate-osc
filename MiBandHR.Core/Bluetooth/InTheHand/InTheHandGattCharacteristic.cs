@@ -63,7 +63,19 @@ public sealed class InTheHandGattCharacteristic : IGattCharacteristic
         CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(args.Value));
     }
 
-    public Task WriteValueWithResponseAsync(byte[] data) => _characteristic.WriteValueWithResponseAsync(data);
+    public Task WriteValueWithResponseAsync(byte[] data)
+    {
+        return OperatingSystem.IsLinux()
+            ? BlueZNativeInterop.WriteValueAsync(GetLinuxNativeCharacteristic(), data)
+            : _characteristic.WriteValueWithResponseAsync(data);
+    }
+
+    public Task WriteValueWithoutResponseAsync(byte[] data)
+    {
+        return OperatingSystem.IsLinux()
+            ? BlueZNativeInterop.WriteValueWithoutResponseAsync(GetLinuxNativeCharacteristic(), data)
+            : _characteristic.WriteValueWithoutResponseAsync(data);
+    }
 
     public Task StartNotificationsAsync()
     {
