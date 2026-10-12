@@ -70,6 +70,11 @@
             dotnet-sdk = dotnet;
             dotnet-runtime = pkgs.dotnet-runtime_10;
 
+            # The project publishes self-contained with AOT (see the csproj).
+            # buildDotnetModule defaults to a framework-dependent build, which
+            # would pass `-p:PublishTrimmed=false` and conflict with AOT.
+            selfContainedBuild = true;
+
             # Make sure only cross-platform projects are restored/built.
             dotnetRestoreFlags = [ "-p:EnableWindowsTargeting=false" ];
 
@@ -121,6 +126,9 @@
 
             dotnet-sdk = dotnet;
             dotnet-runtime = pkgs.dotnet-runtime_10;
+
+            # The project publishes self-contained (see the csproj).
+            selfContainedBuild = true;
 
             dotnetRestoreFlags = [ "-p:EnableWindowsTargeting=false" ];
 
