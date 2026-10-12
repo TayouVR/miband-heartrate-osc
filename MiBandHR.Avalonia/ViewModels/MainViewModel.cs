@@ -17,8 +17,6 @@ namespace MiBandHR.Avalonia.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {
-    private static readonly Guid HeartRateServiceUuid = new("0000180d-0000-1000-8000-00805f9b34fb");
-
     /// <summary>Display wrapper for a selectable Bluetooth backend.</summary>
     public sealed record BluetoothBackendOption(BluetoothBackend Value, string Label)
     {
@@ -244,19 +242,9 @@ public class MainViewModel : ViewModelBase
         var defaultDeviceName = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceName;
         var defaultDeviceAuthKey = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceAuthKey;
 
-        async void OnBluetoothAdded(object? sender, IBluetoothDevice args)
+        void OnBluetoothAdded(object? sender, IBluetoothDevice args)
         {
             if (args.Name != defaultDeviceName) return;
-
-            try
-            {
-                var services = await args.GetPrimaryServicesAsync();
-                if (!services.Any(srv => srv.Uuid == HeartRateServiceUuid)) return;
-            }
-            catch
-            {
-                return;
-            }
 
             Device device;
             switch (defaultDeviceVersion)
@@ -370,6 +358,14 @@ public class MainViewModel : ViewModelBase
                 {
                     _guard = true;
                 }
+
+                // Start monitoring as soon as the handshake completes. Mi Band
+                // firmware idles out and disconnects a few seconds after auth if
+                // the host doesn't subscribe to heart rate notifications promptly.
+                if (Device.Status == DeviceStatus.ONLINE_AUTH && !Device.HeartrateMonitorStarted)
+                {
+                    Dispatcher.UIThread.Post(StartMonitoring);
+                }
             }
         }
         else if (e.PropertyName == nameof(Device.HeartrateMonitorStarted))
@@ -380,10 +376,10 @@ public class MainViewModel : ViewModelBase
 
     private void DeviceUpdate()
     {
-        if (Device != null)
-        {
-            IsConnected = Device.Status != DeviceStatus.OFFLINE;
-        }
+        // Must be reset even when Device is null, otherwise the connect buttons
+        // stay hidden (ShowConnectButtons == !IsConnected) and the UI is stuck
+        // after a disconnect.
+        IsConnected = Device != null && Device.Status != DeviceStatus.OFFLINE;
 
         UpdateStatusText();
         RaiseCommandStates();

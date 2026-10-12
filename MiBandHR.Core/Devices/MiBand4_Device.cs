@@ -41,6 +41,13 @@ namespace MiBandHR.Core.Devices
         protected override byte[] EncryptedNumberResponsePrefix => new byte[] { 0x03, 0x00 };
 
         /// <summary>
+        /// Mi Band 4/5 skips the key-exchange: the initial command is already the
+        /// random-challenge request, so the handshake state machine starts one
+        /// step ahead of the Mi Band 2/3 flow.
+        /// </summary>
+        protected override bool UsesKeyExchange => false;
+
+        /// <summary>
         /// Accepts the key either as 32 character hex string (the format
         /// produced by freemyband.com / huami-token) or as arbitrary text,
         /// in which case the first 16 bytes of its SHA-256 hash are used.

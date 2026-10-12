@@ -43,6 +43,9 @@
             </StackPanel>
         </Grid>
 
+        <TextBlock Text="{Binding ScanStatus}" Margin="0 0 0 10"
+                   TextWrapping="Wrap" />
+
         <Grid ColumnDefinitions="150, *" Margin="0 0 0 10">
             <TextBlock Grid.Column="0" VerticalAlignment="Center">Select the model</TextBlock>
             <ComboBox Grid.Column="1"

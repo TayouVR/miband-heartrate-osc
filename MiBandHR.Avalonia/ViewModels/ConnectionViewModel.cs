@@ -26,6 +26,7 @@ public class ConnectionViewModel : ViewModelBase
     private DeviceModelOption _selectedModel;
     private CancellationTokenSource? _scanCts;
     private bool _isScanning;
+    private string _scanStatus = "Scanning...";
 
     public ConnectionViewModel()
     {
@@ -53,6 +54,17 @@ public class ConnectionViewModel : ViewModelBase
         {
             _isScanning = value;
             OnPropertyChanged(nameof(IsScanning));
+        }
+    }
+
+    /// <summary>Human-readable scan progress / result / error text.</summary>
+    public string ScanStatus
+    {
+        get => _scanStatus;
+        private set
+        {
+            _scanStatus = value;
+            OnPropertyChanged(nameof(ScanStatus));
         }
     }
 
@@ -105,6 +117,7 @@ public class ConnectionViewModel : ViewModelBase
         _scanCts?.Cancel();
         _scanCts = new CancellationTokenSource();
         IsScanning = true;
+        ScanStatus = "Scanning...";
 
         _ = ScanAsync(_scanCts.Token);
     }
@@ -114,10 +127,26 @@ public class ConnectionViewModel : ViewModelBase
         try
         {
             await _bluetooth.ScanForDevicesAsync(token);
+            if (!token.IsCancellationRequested)
+            {
+                ScanStatus = Devices.Count == 0
+                    ? "No devices found."
+                    : $"{Devices.Count} device(s) found.";
+            }
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // Ignore scan errors (e.g. cancelled); the list just stays as-is.
+            // Cancelled by the user; nothing to report.
+        }
+        catch (Exception e)
+        {
+            // Surface the failure to the user instead of silently showing an
+            // empty list (e.g. no adapter, D-Bus/BlueZ unavailable).
+            BluetoothLog.Error($"Scan failed: {e.Message}");
+            if (!token.IsCancellationRequested)
+            {
+                ScanStatus = $"Scan failed: {e.Message}";
+            }
         }
         finally
         {

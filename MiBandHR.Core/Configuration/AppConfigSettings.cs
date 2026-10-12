@@ -20,6 +20,13 @@ public class DeviceConfig
     public string AutoConnectDeviceName { get; set; } = "Mi Band 3";
     public string AutoConnectDeviceAuthKey { get; set; } = "0123456789abcdef0123456789abcdef";
     public bool TryConnectOnStartup { get; set; }
+
+    /// <summary>
+    /// Persisted Mi Band 2/3 authentication keys, keyed by device address (hex).
+    /// Mi Band 2/3 generate a random key on first pairing and the band then
+    /// stores it, so the host must reuse the exact same key on every reconnect.
+    /// </summary>
+    public Dictionary<string, string> AuthKeys { get; set; } = new();
 }
 
 public class MonitoringConfig

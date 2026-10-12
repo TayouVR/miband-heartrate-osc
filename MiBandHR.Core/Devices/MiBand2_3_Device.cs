@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using MiBandHR.Core.Bluetooth;
+using MiBandHR.Core.Configuration;
 
 namespace MiBandHR.Core.Devices
 {
@@ -20,12 +21,33 @@ namespace MiBandHR.Core.Devices
         }
 
         /// <summary>
-        /// Lazily generates a fresh random key for the connection.
-        /// The band accepts the first key it sees after a factory reset.
+        /// Returns the authentication key for this band.
+        ///
+        /// On the first connection a fresh random key is generated and persisted
+        /// (keyed by the device address) so that subsequent reconnects reuse the
+        /// same key — the band stores the first key it accepts and rejects any
+        /// different key afterwards. A factory reset makes the band forget it.
         /// </summary>
         protected override byte[] GetAuthenticationKey()
         {
-            return _key ??= SHA256.HashData(Guid.NewGuid().ToByteArray()).Take(16).ToArray();
+            if (_key != null)
+            {
+                return _key;
+            }
+
+            var deviceConfig = ConfigurationManager.Instance.CurrentConfig.Device;
+            if (deviceConfig.AuthKeys.TryGetValue(DeviceId, out var hexKey))
+            {
+                _key = Convert.FromHexString(hexKey);
+            }
+            else
+            {
+                _key = SHA256.HashData(Guid.NewGuid().ToByteArray()).Take(16).ToArray();
+                deviceConfig.AuthKeys[DeviceId] = Convert.ToHexString(_key);
+                ConfigurationManager.Instance.SaveConfiguration();
+            }
+
+            return _key;
         }
 
         /// <summary>
@@ -35,26 +57,6 @@ namespace MiBandHR.Core.Devices
         protected override byte[] GetInitialAuthCommand()
         {
             return Combine(new byte[] { 0x01, 0x08 }, GetAuthenticationKey());
-        }
-
-        /// <summary>
-        /// Mi Band 2/3 needs the raw sensor to be enabled explicitly via the
-        /// Huami sensor service before heart rate measurements can start.
-        /// Returns the sensor control characteristic so the base class can
-        /// send the trigger frame afterwards.
-        /// </summary>
-        protected override async Task<IGattCharacteristic?> PrepareHeartRateSensorAsync()
-        {
-            var sensorService = await ConnectedDevice.GetPrimaryServiceAsync(SensorServiceUuid);
-            if (sensorService == null) return null;
-
-            var characteristic = await sensorService.GetCharacteristicAsync(SensorCharacteristicUuid);
-            if (characteristic != null)
-            {
-                await Write(characteristic, new byte[] { 0x01, 0x03, 0x19 });
-            }
-
-            return characteristic;
         }
     }
 }

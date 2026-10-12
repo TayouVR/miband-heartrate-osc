@@ -250,16 +250,34 @@ Key: `30313233343536373839616263646566` (hex)
 ### 4.1 Mi Band 2 / 3 – random key pairing
 
 Mi Band 2/3 do not have a vendor-account bound key. After a factory reset the
-band accepts the **first key it sees** and stores it. This application simply
-generates a fresh random 16 byte key on every connection
+band accepts the **first key it sees** and stores it. This application generates
+a random 16 byte key on the very first connection and then **persists it, keyed
+by the device address**, so every subsequent reconnect reuses the same key
 ([`MiBand2_3_Device.GetAuthenticationKey()`](../MiBandHR.Core/Devices/MiBand2_3_Device.cs)):
 
 ```csharp
 protected override byte[] GetAuthenticationKey()
 {
-    return SHA256.HashData(Guid.NewGuid().ToByteArray()).Take(16).ToArray();
+    if (_key != null) return _key;
+
+    var deviceConfig = ConfigurationManager.Instance.CurrentConfig.Device;
+    if (deviceConfig.AuthKeys.TryGetValue(DeviceId, out var hexKey))
+    {
+        _key = Convert.FromHexString(hexKey);
+    }
+    else
+    {
+        _key = SHA256.HashData(Guid.NewGuid().ToByteArray()).Take(16).ToArray();
+        deviceConfig.AuthKeys[DeviceId] = Convert.ToHexString(_key);
+        ConfigurationManager.Instance.SaveConfiguration();
+    }
+
+    return _key;
 }
 ```
+
+The key is stored in the `[device.auth_keys]` table of `config.toml`, mapping
+the device address to its hex-encoded key.
 
 Consequences:
 
@@ -268,8 +286,9 @@ Consequences:
 * During the first handshake the band asks the user to **touch the physical
   button** to confirm pairing. If the button is not touched in time, the band
   answers with a failure status or simply disconnects.
-* Because the key is random per session, losing it is not a problem – the band
-  only needs to be reset/unpaired to accept a new one.
+* Once the band has stored a key, reusing a *different* key is rejected with
+  `[0x10, 0x01, 0x04]`. To pair with a new key the band must be factory reset
+  (or the persisted key removed from `config.toml`).
 
 ### 4.2 Mi Band 4 / 5 – vendor bound key
 
@@ -332,13 +351,12 @@ General notes:
 * The handshake is time sensitive. Sending the next step only after receiving
   the previous response (as done in `OnAuthenticateNotify`) is the most
   reliable approach.
-* The Huami auth (`00000009-...`) and sensor (`00000001-...`) characteristics
-  only support **write-without-response**, so every auth/sensor command frame is
-  written without response. On Linux the backend omits the BlueZ `type` option
-  and lets BlueZ auto-select the write procedure from the characteristic flags
-  (the same behaviour as btleplug/bluez-async, which the reference Rust
-  implementation relies on). The standard Heart Rate Control Point (`0x2A39`)
-  is written **with response**.
+* The Huami auth characteristic (`00000009-...`) supports
+  **write-without-response** (BlueZ returns `org.bluez.Error.NotSupported` for a
+  write-with-response), so every auth command frame is written without response.
+  On Linux the backend omits the BlueZ `type` option and lets BlueZ auto-select
+  the write procedure from the characteristic flags. The standard Heart Rate
+  Control Point (`0x2A39`) is written **with response**.
 * Everything described here is independent of the Bluetooth transport. The
   `MiBandHR.Core.Bluetooth` abstraction only needs to provide GATT reads,
   writes and notifications – any BLE stack that can do that (InTheHand,
@@ -351,24 +369,23 @@ General notes:
 Before a successful handshake, most Huami-specific characteristics reject
 writes. After `ONLINE_AUTH` is reached, the application:
 
-1. (Mi Band 2/3 only) enables the sensor via the sensor service
-   `0000fee0-...` / characteristic `00000001-...` with `[0x01, 0x03, 0x19]`.
-2. Subscribes to heart rate notifications on the standard Heart Rate
+1. Subscribes to heart rate notifications on the standard Heart Rate
    Measurement characteristic `0x2A37`.
-3. Starts a measurement through the Heart Rate Control Point `0x2A39`:
+2. Starts a measurement through the Heart Rate Control Point `0x2A39`:
    ```
-   [0x15, 0x01, 0x01]   start continuous measurement
-   [0x15, 0x02, 0x01]   start one-shot measurement
-   [0x15, 0x01, 0x00]   stop continuous measurement
    [0x15, 0x02, 0x00]   stop one-shot measurement
+   [0x15, 0x01, 0x01]   start continuous measurement
+   [0x15, 0x01, 0x00]   stop continuous measurement
+   [0x15, 0x02, 0x01]   start one-shot measurement
    ```
-4. Writes the trigger frame `[0x02]` to the sensor control characteristic
-   (mainly required by Mi Band 2/3 to actually begin sampling).
-5. (Continuous mode only) sends a keep-alive ping `[0x16]` every 12 seconds,
-   because the band stops the continuous measurement after ~15 s of
+   (The order mirrors Gadgetbridge: stop the other mode before starting the
+   desired one.)
+3. (Continuous mode only) sends a keep-alive ping `[0x16]` every 5 seconds,
+   because the band stops the continuous measurement after a short period of
    inactivity. In one-shot mode the monitor stops after the first received
    value.
 
 Heart rate values arrive as two byte notifications on `0x2A37`: the first byte
 is a flags field (`0x00` = 8 bit heart rate value follows), the second byte is
-the heart rate in BPM.
+the heart rate in BPM. The raw Huami sensor service (`0xFEE0`) is not needed for
+heart rate on the Mi Band 3.

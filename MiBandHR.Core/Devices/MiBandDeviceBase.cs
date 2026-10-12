@@ -48,12 +48,6 @@ public abstract class MiBandDeviceBase : Device
     /// <summary>Heart Rate Measurement characteristic (0x2A37) – notifies the measured values.</summary>
     protected static readonly Guid HeartRateMeasurementUuid = new("00002a37-0000-1000-8000-00805f9b34fb");
 
-    /// <summary>Huami/Xiaomi sensor service (only needed on Mi Band 2/3 to enable the sensor).</summary>
-    protected static readonly Guid SensorServiceUuid = new("0000fee0-0000-1000-8000-00805f9b34fb");
-
-    /// <summary>Sensor control characteristic inside <see cref="SensorServiceUuid"/>.</summary>
-    protected static readonly Guid SensorCharacteristicUuid = new("00000001-0000-3512-2118-0009af100700");
-
     // ------------------------------------------------------------------
     // State
     // ------------------------------------------------------------------
@@ -66,6 +60,8 @@ public abstract class MiBandDeviceBase : Device
     private CancellationTokenSource? _keepAliveCts;
     private Task? _keepAliveTask;
     private bool _continuous;
+
+    private AuthState _authState = AuthState.None;
 
     protected MiBandDeviceBase(IBluetoothDevice device, DeviceModel model)
     {
@@ -100,6 +96,13 @@ public abstract class MiBandDeviceBase : Device
     /// Mi Band 2/3: <c>0x03 0x08</c>; Mi Band 4/5: <c>0x03 0x00</c>.
     /// </summary>
     protected virtual byte[] EncryptedNumberResponsePrefix => new byte[] { 0x03, 0x08 };
+
+    /// <summary>
+    /// True when the handshake starts with a key-exchange frame (<c>0x01 0x08 + key</c>),
+    /// i.e. Mi Band 2/3. Mi Band 4/5 skip the key exchange and the initial command
+    /// is already the random-challenge request (<c>0x02 0x00</c>).
+    /// </summary>
+    protected virtual bool UsesKeyExchange => true;
 
     // ------------------------------------------------------------------
     // Connection lifecycle
@@ -147,6 +150,8 @@ public abstract class MiBandDeviceBase : Device
 
     public override void Authenticate()
     {
+        _authState = AuthState.None;
+
         _ = Task.Run(async () =>
         {
             try
@@ -175,12 +180,17 @@ public abstract class MiBandDeviceBase : Device
                 characteristic.SubscribeToValueChanges();
                 characteristic.CharacteristicValueChanged += OnAuthenticateNotify;
                 await characteristic.StartNotificationsAsync();
+                BluetoothLog.Info("Notifications started on auth characteristic, sending initial command...");
 
                 // Kick off the handshake (generation specific).
-                await Write(characteristic, GetInitialAuthCommand());
+                var initialCommand = GetInitialAuthCommand();
+                BluetoothLog.Info($"Initial auth command: [{string.Join(" ", initialCommand.Select(b => b.ToString("X2")))}]");
+                _authState = UsesKeyExchange ? AuthState.SentKey : AuthState.RequestedChallenge;
+                await Write(characteristic, initialCommand);
             }
             catch (Exception e)
             {
+                _authState = AuthState.Failed;
                 BluetoothLog.Error($"Authentication failed: {e.Message}");
             }
         });
@@ -191,6 +201,8 @@ public abstract class MiBandDeviceBase : Device
         if (sender is not IGattCharacteristic characteristic) return;
 
         byte[] value = args.Value;
+        BluetoothLog.Info($"Auth notification received ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
+
         // Responses are at least 3 bytes: [0x10, command, status].
         if (value.Length < 3) return;
 
@@ -198,14 +210,22 @@ public abstract class MiBandDeviceBase : Device
         {
             // Response to the initial command (0x01 on MB2/3, 0x02 on MB4/5).
             case 0x01:
-                if (value[2] == 0x01)
+                if (value[2] == 0x01 && _authState == AuthState.SentKey)
                 {
                     BluetoothLog.Info("Key accepted, requesting random challenge...");
+                    _authState = AuthState.RequestedChallenge;
                     _ = Write(characteristic, RandomNumberRequestCommand);
+                }
+                else if (value[2] != 0x01)
+                {
+                    BluetoothLog.Error("Authentication failed (key rejected).");
+                    _authState = AuthState.Failed;
                 }
                 else
                 {
-                    BluetoothLog.Error("Authentication failed (key rejected).");
+                    // Duplicate "key accepted" notification; the challenge has
+                    // already been requested, so don't request it again.
+                    BluetoothLog.Info("Ignoring duplicate key-accepted notification.");
                 }
                 break;
 
@@ -215,12 +235,23 @@ public abstract class MiBandDeviceBase : Device
                 if (value[2] != 0x01)
                 {
                     BluetoothLog.Error("Authentication failed (random number request rejected).");
+                    _authState = AuthState.Failed;
+                    break;
+                }
+
+                if (_authState != AuthState.RequestedChallenge)
+                {
+                    // Duplicate or stale challenge (e.g. the band re-sent the
+                    // same notification). Responding twice would make the band
+                    // reject the handshake with [10 03 04].
+                    BluetoothLog.Info("Ignoring duplicate/stale challenge notification.");
                     break;
                 }
 
                 BluetoothLog.Info("Challenge received, sending encrypted response...");
                 byte[] number = value.Skip(3).ToArray();
                 byte[] encryptedNumber = EncryptAuthenticationNumber(number);
+                _authState = AuthState.SentEncryptedResponse;
                 _ = Write(characteristic, Combine(EncryptedNumberResponsePrefix, encryptedNumber));
                 break;
             }
@@ -229,12 +260,22 @@ public abstract class MiBandDeviceBase : Device
             case 0x03:
                 if (value[2] == 0x01)
                 {
+                    // Only report/act on the first success. A duplicate
+                    // [10 03 01] (BlueZ can re-deliver) must not re-trigger
+                    // Status = ONLINE_AUTH, which would double-start monitoring.
+                    if (_authState == AuthState.Authenticated)
+                    {
+                        break;
+                    }
+
                     BluetoothLog.Success("Authentication successful.");
+                    _authState = AuthState.Authenticated;
                     Status = DeviceStatus.ONLINE_AUTH;
                 }
                 else
                 {
                     BluetoothLog.Error("Authentication failed (encrypted number rejected).");
+                    _authState = AuthState.Failed;
                 }
                 break;
         }
@@ -258,16 +299,6 @@ public abstract class MiBandDeviceBase : Device
     // Heart rate monitoring
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Hook allowing Mi Band 2/3 to enable the raw sensor before measurements.
-    /// Returns the sensor control characteristic when available, so that the
-    /// trigger frame (<c>0x02</c>) can be written after the measurement was
-    /// started. Default implementation does nothing and returns null
-    /// (Mi Band 4+ does not need it).
-    /// </summary>
-    protected virtual Task<IGattCharacteristic?> PrepareHeartRateSensorAsync()
-        => Task.FromResult<IGattCharacteristic?>(null);
-
     public override void StartHeartrateMonitor(bool continuous = false)
     {
         if (HeartrateMonitorStarted) return;
@@ -281,8 +312,6 @@ public abstract class MiBandDeviceBase : Device
         {
             try
             {
-                var sensorCharacteristic = await PrepareHeartRateSensorAsync();
-
                 var service = await ConnectedDevice.GetPrimaryServiceAsync(HeartRateServiceUuid);
                 if (service == null)
                 {
@@ -304,8 +333,10 @@ public abstract class MiBandDeviceBase : Device
                 {
                     if (continuous)
                     {
-                        // Start a continuous measurement and keep it alive.
-                        await Write(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x01 });
+                        // Stop any ongoing one-shot measurement, then start the
+                        // continuous measurement (mirrors Gadgetbridge).
+                        await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x00 });
+                        await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x01 });
 
                         _keepAliveCts = new CancellationTokenSource();
                         _keepAliveTask = RunHeartRateKeepAliveAsync(_keepAliveCts.Token);
@@ -313,13 +344,8 @@ public abstract class MiBandDeviceBase : Device
                     else
                     {
                         // Single (one-shot) measurement.
-                        await Write(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x01 });
-                    }
-
-                    // Trigger the sensor (mainly required by Mi Band 2/3).
-                    if (sensorCharacteristic != null)
-                    {
-                        await Write(sensorCharacteristic, new byte[] { 0x02 });
+                        await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x00 });
+                        await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x01 });
                     }
 
                     HeartrateMonitorStarted = true;
@@ -351,8 +377,8 @@ public abstract class MiBandDeviceBase : Device
         {
             if (_heartRateControlPoint != null)
             {
-                await Write(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x00 });
-                await Write(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x00 });
+                await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x00 });
+                await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x00 });
             }
         });
 
@@ -362,11 +388,20 @@ public abstract class MiBandDeviceBase : Device
     private void OnHeartRateNotify(object? sender, GattCharacteristicValueChangedEventArgs args)
     {
         byte[] value = args.Value;
-        // The first byte is a flags field; 0x00 means the heart rate is
-        // encoded as a single byte in value[1].
-        if (value.Length == 2 && value[0] == 0 && value[1] > 0)
+
+        if (value.Length < 2) return;
+
+        // Log the raw packet so the on-wire format is visible while debugging.
+        BluetoothLog.Info($"HR packet ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
+
+        // Standard Heart Rate Measurement format (Bluetooth HRS): byte 0 is the
+        // flags field, byte 1 is the 8-bit heart rate value. Gadgetbridge reads
+        // value[1] the same way for the Mi Band 2/3.
+        int heartrate = value[1];
+
+        if (heartrate > 0)
         {
-            Heartrate = value[1];
+            Heartrate = (ushort)heartrate;
         }
 
         // A one-shot measurement delivers exactly one value.
@@ -377,8 +412,9 @@ public abstract class MiBandDeviceBase : Device
     }
 
     /// <summary>
-    /// The band stops the continuous measurement after ~15 s without activity,
-    /// so a ping (0x16) is sent every 12 s to keep the session alive.
+    /// The band stops the continuous measurement after a short period without
+    /// activity, so a ping (0x16) is sent every 5 s to keep the session alive
+    /// (the interval the original, working Windows implementation used).
     /// </summary>
     private async Task RunHeartRateKeepAliveAsync(CancellationToken cancellationToken)
     {
@@ -386,11 +422,12 @@ public abstract class MiBandDeviceBase : Device
         {
             while (!cancellationToken.IsCancellationRequested)
             {
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+
                 if (_heartRateControlPoint != null)
                 {
-                    await Write(_heartRateControlPoint, new byte[] { 0x16 });
+                    await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x16 });
                 }
-                await Task.Delay(TimeSpan.FromSeconds(12), cancellationToken);
             }
         }
         catch (OperationCanceledException)
@@ -403,16 +440,47 @@ public abstract class MiBandDeviceBase : Device
     // Helpers
     // ------------------------------------------------------------------
 
-    /// <summary>Writes a payload to a characteristic, swallowing transport errors.</summary>
+    /// <summary>
+    /// Writes a payload to a characteristic <b>without response</b>, swallowing
+    /// transport errors.
+    ///
+    /// The Huami auth (0x00000009-...) and sensor (0x00000001-...) characteristics
+    /// only support write-without-response (BlueZ returns
+    /// <c>org.bluez.Error.NotSupported</c> for a write-with-response). On Linux
+    /// the backend omits the BlueZ "type" option so BlueZ auto-selects the write
+    /// procedure from the characteristic's flags.
+    /// </summary>
     protected static async Task Write(IGattCharacteristic characteristic, byte[] data)
     {
         try
         {
+            BluetoothLog.Info($"Writing {data.Length} bytes to {characteristic.Uuid}: [{string.Join(" ", data.Select(b => b.ToString("X2")))}]");
+            await characteristic.WriteValueWithoutResponseAsync(data);
+        }
+        catch (Exception e)
+        {
+            BluetoothLog.Error($"Unable to write on {characteristic.Uuid} - {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Writes a payload to a characteristic <b>with response</b>, swallowing
+    /// transport errors.
+    ///
+    /// The Heart Rate Control Point (0x2A39) is a Bluetooth SIG characteristic
+    /// that supports write-with-response, so the start/stop/keep-alive command
+    /// frames use this write type.
+    /// </summary>
+    protected static async Task WriteWithResponse(IGattCharacteristic characteristic, byte[] data)
+    {
+        try
+        {
+            BluetoothLog.Info($"Writing {data.Length} bytes to {characteristic.Uuid}: [{string.Join(" ", data.Select(b => b.ToString("X2")))}]");
             await characteristic.WriteValueWithResponseAsync(data);
         }
         catch (Exception e)
         {
-            Console.WriteLine($"Unable to write on {characteristic.Uuid} - {e.Message}");
+            BluetoothLog.Error($"Unable to write on {characteristic.Uuid} - {e.Message}");
         }
     }
 
@@ -422,5 +490,23 @@ public abstract class MiBandDeviceBase : Device
         Buffer.BlockCopy(prefix, 0, result, 0, prefix.Length);
         Buffer.BlockCopy(payload, 0, result, prefix.Length, payload.Length);
         return result;
+    }
+
+    /// <summary>
+    /// Progression of the authentication handshake. Used to make the
+    /// notification handler idempotent, because some stacks (BlueZ) or the band
+    /// itself can deliver the same notification more than once. Re-acting to a
+    /// duplicate frame (e.g. re-requesting the challenge or re-sending the
+    /// encrypted response) makes the band reject the handshake with
+    /// <c>[10 03 04]</c>.
+    /// </summary>
+    private enum AuthState
+    {
+        None,
+        SentKey,
+        RequestedChallenge,
+        SentEncryptedResponse,
+        Authenticated,
+        Failed
     }
 }
