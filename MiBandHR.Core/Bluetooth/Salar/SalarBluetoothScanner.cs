@@ -32,16 +32,30 @@ public sealed class SalarBluetoothScanner : IBluetoothScanner
 
     public event EventHandler<IBluetoothDevice>? DeviceFound;
 
+    private int _resultCount;
+
     public async Task ScanForDevicesAsync(CancellationToken cancellationToken = default)
     {
+        _resultCount = 0;
         BluetoothLog.Info("Starting scan for BLE devices...");
         try
         {
             var access = await _adapter.RequestAccessAsync(cancellationToken);
+            BluetoothLog.Info($"Bluetooth access: {access} (adapter state: {_adapter.AdapterState}).");
             if (access != BlePermissionStatus.Granted)
             {
-                BluetoothLog.Error($"Bluetooth access not granted (status: {access}).");
+                BluetoothLog.Error($"Bluetooth access not granted (status: {access}, adapter state: {_adapter.AdapterState}).");
                 return;
+            }
+
+            // Stop any existing scan first to avoid org.bluez.Error.InProgress.
+            try
+            {
+                await _adapter.StopScanAsync(cancellationToken);
+            }
+            catch
+            {
+                // Ignore – no prior scan may have been running.
             }
 
             await _adapter.StartScanAsync(new ScanConfig
@@ -61,7 +75,7 @@ public sealed class SalarBluetoothScanner : IBluetoothScanner
             }
 
             await _adapter.StopScanAsync(cancellationToken);
-            BluetoothLog.Info("Scan finished.");
+            BluetoothLog.Info($"Scan finished, {_resultCount} result(s) reported.");
         }
         catch (Exception e)
         {
@@ -77,6 +91,7 @@ public sealed class SalarBluetoothScanner : IBluetoothScanner
             return;
         }
 
+        _resultCount++;
         DeviceFound?.Invoke(this, new SalarBluetoothDevice(_adapter, result.Address, result.Name ?? string.Empty));
     }
 }
