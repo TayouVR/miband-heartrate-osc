@@ -65,7 +65,7 @@
             src = ./.;
 
             projectFile = "MiBandHR.Avalonia/MiBandHR.Avalonia.csproj";
-            nugetDeps = ./nuget-deps.json;
+            nugetDeps = ./nuget-deps-gui.json;
 
             dotnet-sdk = dotnet;
             dotnet-runtime = pkgs.dotnet-runtime_10;
@@ -117,7 +117,7 @@
             src = ./.;
 
             projectFile = "MiBandHR.Cli/MiBandHR.Cli.csproj";
-            nugetDeps = ./nuget-deps.json;
+            nugetDeps = ./nuget-deps-cli.json;
 
             dotnet-sdk = dotnet;
             dotnet-runtime = pkgs.dotnet-runtime_10;
