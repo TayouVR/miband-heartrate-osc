@@ -71,7 +71,6 @@ public sealed class BlueZGattCharacteristic : IGattCharacteristic
 
     private void RaiseValueChanged(byte[] value)
     {
-        BluetoothLog.Info($"Notify on {Uuid} ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
         CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
     }
 }

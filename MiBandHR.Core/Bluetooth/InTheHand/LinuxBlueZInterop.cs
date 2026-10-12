@@ -190,36 +190,11 @@ internal static class LinuxBlueZInterop
 
             public void Invoke(T changes)
             {
-                LogChangedKeys(changes);
-
                 var value = ExtractValue(changes);
                 if (value != null)
                 {
                     _onValueChanged(value);
                 }
-            }
-
-            /// <summary>
-            /// Logs which properties changed in this <c>PropertiesChanged</c>
-            /// signal, so it is visible whether the peripheral is actually
-            /// notifying a given characteristic.
-            /// </summary>
-            private static void LogChangedKeys(T changes)
-            {
-                var changed = typeof(T).GetProperty("Changed")?.GetValue(changes);
-                if (changed is not System.Collections.IEnumerable enumerable)
-                {
-                    return;
-                }
-
-                var keys = new List<string>();
-                foreach (var item in enumerable)
-                {
-                    var key = item.GetType().GetProperty("Key")?.GetValue(item) as string;
-                    keys.Add(key ?? "<null>");
-                }
-
-                BluetoothLog.Info($"PropertiesChanged: [{string.Join(", ", keys)}]");
             }
 
             /// <summary>

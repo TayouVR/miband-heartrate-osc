@@ -389,12 +389,8 @@ public abstract class MiBandDeviceBase : Device
 
         if (value.Length < 2) return;
 
-        // Log the raw packet so the on-wire format is visible while debugging.
-        BluetoothLog.Info($"HR packet ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
-
         // Standard Heart Rate Measurement format (Bluetooth HRS): byte 0 is the
-        // flags field, byte 1 is the 8-bit heart rate value. Gadgetbridge reads
-        // value[1] the same way for the Mi Band 2/3.
+        // flags field, byte 1 is the 8-bit heart rate value.
         int heartrate = value[1];
 
         if (heartrate > 0)
