@@ -379,11 +379,8 @@ writes. After `ONLINE_AUTH` is reached, the application:
    [0x15, 0x02, 0x01]   start one-shot measurement
    ```
    (The order mirrors Gadgetbridge: stop the other mode before starting the
-   desired one.)
-3. (Continuous mode only) sends a keep-alive ping `[0x16]` every 5 seconds,
-   because the band stops the continuous measurement after a short period of
-   inactivity. In one-shot mode the monitor stops after the first received
-   value.
+   desired one.) No keep-alive ping is required — the heart rate notifications
+   themselves keep the link active.
 
 Heart rate values arrive as two byte notifications on `0x2A37`: the first byte
 is a flags field (`0x00` = 8 bit heart rate value follows), the second byte is

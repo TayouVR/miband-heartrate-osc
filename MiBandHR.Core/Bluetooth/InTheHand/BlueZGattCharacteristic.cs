@@ -38,6 +38,22 @@ public sealed class BlueZGattCharacteristic : IGattCharacteristic
         // Subscribe first so no notification is lost, then start notify.
         _propertyWatcher ??= await LinuxBlueZInterop.WatchValueAsync(_nativeCharacteristic, RaiseValueChanged);
         await LinuxBlueZInterop.StartNotifyWithRetryAsync(_nativeCharacteristic);
+
+        var flags = await BlueZNativeInterop.GetCharacteristicFlagsAsync(_nativeCharacteristic);
+        var notifying = await BlueZNativeInterop.GetNotifyingAsync(_nativeCharacteristic);
+        BluetoothLog.Info($"Notifications enabled on {Uuid} (flags: {flags}, notifying: {notifying}).");
+
+        // Some peripherals (e.g. the Mi Band) don't actually start notifying
+        // after StartNotify even though BlueZ reports success. Explicitly write
+        // the CCCD as a fallback.
+        try
+        {
+            await BlueZNativeInterop.WriteCccdAsync(_nativeCharacteristic, new byte[] { 0x01, 0x00 });
+        }
+        catch (Exception ex)
+        {
+            BluetoothLog.Retry($"Explicit CCCD write failed: {ex.Message}");
+        }
     }
 
     public async Task StopNotificationsAsync()
@@ -55,6 +71,7 @@ public sealed class BlueZGattCharacteristic : IGattCharacteristic
 
     private void RaiseValueChanged(byte[] value)
     {
+        BluetoothLog.Info($"Notify on {Uuid} ({value.Length} bytes): [{string.Join(" ", value.Select(b => b.ToString("X2")))}]");
         CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
     }
 }

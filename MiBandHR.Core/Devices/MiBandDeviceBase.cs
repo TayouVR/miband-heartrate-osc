@@ -57,8 +57,6 @@ public abstract class MiBandDeviceBase : Device
     private IGattCharacteristic? _heartRateControlPoint;
     private IGattCharacteristic? _heartRateMeasurement;
 
-    private CancellationTokenSource? _keepAliveCts;
-    private Task? _keepAliveTask;
     private bool _continuous;
 
     private AuthState _authState = AuthState.None;
@@ -327,6 +325,11 @@ public abstract class MiBandDeviceBase : Device
                     _heartRateMeasurement.SubscribeToValueChanges();
                     _heartRateMeasurement.CharacteristicValueChanged += OnHeartRateNotify;
                     await _heartRateMeasurement.StartNotificationsAsync();
+
+                    // Give the CCCD write (StartNotify) time to reach the band
+                    // before starting the measurement. Without this the band
+                    // measures (LED on) but never notifies HR values.
+                    await Task.Delay(1000);
                 }
 
                 if (_heartRateControlPoint != null)
@@ -334,12 +337,11 @@ public abstract class MiBandDeviceBase : Device
                     if (continuous)
                     {
                         // Stop any ongoing one-shot measurement, then start the
-                        // continuous measurement (mirrors Gadgetbridge).
+                        // continuous measurement (mirrors Gadgetbridge). No
+                        // keep-alive ping is needed — the heart rate notifications
+                        // keep the link active.
                         await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x02, 0x00 });
                         await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x15, 0x01, 0x01 });
-
-                        _keepAliveCts = new CancellationTokenSource();
-                        _keepAliveTask = RunHeartRateKeepAliveAsync(_keepAliveCts.Token);
                     }
                     else
                     {
@@ -368,10 +370,6 @@ public abstract class MiBandDeviceBase : Device
         if (!HeartrateMonitorStarted) return;
 
         BluetoothLog.Info("Stopping heart rate monitoring.");
-
-        _keepAliveCts?.Cancel();
-        _keepAliveCts = null;
-        _keepAliveTask = null;
 
         _ = Task.Run(async () =>
         {
@@ -408,31 +406,6 @@ public abstract class MiBandDeviceBase : Device
         if (!_continuous)
         {
             StopHeartrateMonitor();
-        }
-    }
-
-    /// <summary>
-    /// The band stops the continuous measurement after a short period without
-    /// activity, so a ping (0x16) is sent every 5 s to keep the session alive
-    /// (the interval the original, working Windows implementation used).
-    /// </summary>
-    private async Task RunHeartRateKeepAliveAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
-
-                if (_heartRateControlPoint != null)
-                {
-                    await WriteWithResponse(_heartRateControlPoint, new byte[] { 0x16 });
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected on StopHeartrateMonitor().
         }
     }
 

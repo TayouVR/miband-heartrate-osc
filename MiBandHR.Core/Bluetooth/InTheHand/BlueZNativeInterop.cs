@@ -217,6 +217,107 @@ internal static class BlueZNativeInterop
     // ------------------------------------------------------------------
 
     /// <summary>
+    /// Reads the BlueZ characteristic flags (e.g. "read", "write",
+    /// "write-without-response", "notify", "indicate", "encrypt-notify") for
+    /// diagnostic purposes.
+    /// </summary>
+    public static async Task<string> GetCharacteristicFlagsAsync(object nativeCharacteristic)
+    {
+        var props = await GetAllPropertiesAsync(nativeCharacteristic);
+        var flagsProp = props.GetType().GetProperty("Flags");
+        var flags = flagsProp?.GetValue(props);
+        if (flags is string[] arr) return string.Join(",", arr);
+        if (flags is System.Collections.IEnumerable enumerable)
+            return string.Join(",", enumerable.Cast<object>());
+        return flags?.ToString() ?? "<none>";
+    }
+
+    /// <summary>
+    /// Reads the BlueZ "Notifying" property (true once notifications have been
+    /// enabled on the peripheral), for diagnostic purposes.
+    /// </summary>
+    public static async Task<bool> GetNotifyingAsync(object nativeCharacteristic)
+    {
+        var props = await GetAllPropertiesAsync(nativeCharacteristic);
+        var prop = props.GetType().GetProperty("Notifying");
+        return prop?.GetValue(props) is bool b && b;
+    }
+
+    /// <summary>
+    /// Enumerates the GATT descriptors of a characteristic and writes the
+    /// Client Characteristic Configuration Descriptor (0x2902) to explicitly
+    /// enable notifications (0x0001) or indications (0x0002).
+    ///
+    /// Some peripherals (notably the Mi Band) do not start notifying after
+    /// BlueZ's <c>StartNotify</c> even though it reports success, so the CCCD
+    /// is written here as a fallback.
+    /// </summary>
+    public static async Task WriteCccdAsync(object nativeCharacteristic, byte[] cccdValue)
+    {
+        const string cccdUuid = "00002902-0000-1000-8000-00805f9b34fb";
+
+        var assembly = GetLinuxBluetoothAssembly();
+        var descriptor1Type = assembly.GetType("Linux.Bluetooth.IGattDescriptor1")
+            ?? throw new InvalidOperationException("IGattDescriptor1 not found.");
+        var blueZManagerType = assembly.GetType("Linux.Bluetooth.BlueZManager")
+            ?? throw new InvalidOperationException("BlueZManager not found.");
+
+        var getProxiesMethod = blueZManagerType.GetMethod("GetProxiesAsync", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("BlueZManager.GetProxiesAsync not found.");
+        var getProxiesGeneric = getProxiesMethod.MakeGenericMethod(descriptor1Type);
+
+        var task = (Task?)getProxiesGeneric.Invoke(null, new object[] { "org.bluez.GattDescriptor1", nativeCharacteristic });
+        if (task == null) return;
+        await task;
+
+        if (task.GetType().GetProperty("Result")?.GetValue(task) is not System.Collections.IEnumerable descriptors)
+        {
+            return;
+        }
+
+        foreach (var descriptor in descriptors)
+        {
+            var uuid = await ReadDescriptorUuidAsync(descriptor);
+            BluetoothLog.Info($"  Descriptor: {uuid}");
+
+            if (!string.Equals(uuid, cccdUuid, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var writeMethod = descriptor.GetType().GetMethod("WriteValueAsync")
+                ?? throw new InvalidOperationException("Descriptor has no WriteValueAsync.");
+            var writeTask = (Task?)writeMethod.Invoke(descriptor, new object[] { cccdValue, new Dictionary<string, object>() });
+            if (writeTask != null) await writeTask;
+
+            BluetoothLog.Info($"  Wrote CCCD [{string.Join(" ", cccdValue.Select(b => b.ToString("X2")))}] explicitly.");
+            return;
+        }
+
+        BluetoothLog.Error("  CCCD descriptor (0x2902) not found on characteristic.");
+    }
+
+    private static async Task<string?> ReadDescriptorUuidAsync(object descriptor)
+    {
+        var getAllMethod = descriptor.GetType().GetMethod("GetAllAsync");
+        if (getAllMethod == null) return null;
+
+        var task = (Task?)getAllMethod.Invoke(descriptor, null);
+        if (task == null) return null;
+        await task;
+
+        var props = task.GetType().GetProperty("Result")?.GetValue(task);
+        return props?.GetType().GetProperty("UUID")?.GetValue(props) as string;
+    }
+
+    private static System.Reflection.Assembly GetLinuxBluetoothAssembly()
+    {
+        return AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => a.GetName().Name == "Linux.Bluetooth")
+            ?? System.Reflection.Assembly.Load("Linux.Bluetooth");
+    }
+
+    /// <summary>
     /// Reads all properties of a native BlueZ proxy via <c>GetAllAsync()</c>,
     /// which returns a typed properties DTO (e.g., <c>Device1Properties</c>).
     /// This avoids the generic <c>GetAsync&lt;T&gt;</c> which can't be invoked
