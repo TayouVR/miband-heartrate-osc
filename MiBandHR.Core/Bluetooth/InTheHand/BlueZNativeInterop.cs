@@ -244,18 +244,16 @@ internal static class BlueZNativeInterop
     }
 
     /// <summary>
-    /// Enumerates the GATT descriptors of a characteristic and writes the
-    /// Client Characteristic Configuration Descriptor (0x2902) to explicitly
-    /// enable notifications (0x0001) or indications (0x0002).
+    /// Enumerates and reads the GATT descriptors of a characteristic.
     ///
-    /// Some peripherals (notably the Mi Band) do not start notifying after
-    /// BlueZ's <c>StartNotify</c> even though it reports success, so the CCCD
-    /// is written here as a fallback.
+    /// This is a workaround for a BlueZ quirk: some peripherals (notably the Mi
+    /// Band) do not start delivering notifications after <c>StartNotify</c>
+    /// alone — forcing BlueZ to enumerate the descriptors (a GetManagedObjects
+    /// round-trip) makes the notification delivery "wake up". The CCCD is not
+    /// written here; BlueZ manages it via <c>StartNotify</c>.
     /// </summary>
-    public static async Task WriteCccdAsync(object nativeCharacteristic, byte[] cccdValue)
+    public static async Task PrimeNotificationsAsync(object nativeCharacteristic)
     {
-        const string cccdUuid = "00002902-0000-1000-8000-00805f9b34fb";
-
         var assembly = GetLinuxBluetoothAssembly();
         var descriptor1Type = assembly.GetType("Linux.Bluetooth.IGattDescriptor1")
             ?? throw new InvalidOperationException("IGattDescriptor1 not found.");
@@ -279,22 +277,7 @@ internal static class BlueZNativeInterop
         {
             var uuid = await ReadDescriptorUuidAsync(descriptor);
             BluetoothLog.Info($"  Descriptor: {uuid}");
-
-            if (!string.Equals(uuid, cccdUuid, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var writeMethod = descriptor.GetType().GetMethod("WriteValueAsync")
-                ?? throw new InvalidOperationException("Descriptor has no WriteValueAsync.");
-            var writeTask = (Task?)writeMethod.Invoke(descriptor, new object[] { cccdValue, new Dictionary<string, object>() });
-            if (writeTask != null) await writeTask;
-
-            BluetoothLog.Info($"  Wrote CCCD [{string.Join(" ", cccdValue.Select(b => b.ToString("X2")))}] explicitly.");
-            return;
         }
-
-        BluetoothLog.Error("  CCCD descriptor (0x2902) not found on characteristic.");
     }
 
     private static async Task<string?> ReadDescriptorUuidAsync(object descriptor)

@@ -43,17 +43,9 @@ public sealed class BlueZGattCharacteristic : IGattCharacteristic
         var notifying = await BlueZNativeInterop.GetNotifyingAsync(_nativeCharacteristic);
         BluetoothLog.Info($"Notifications enabled on {Uuid} (flags: {flags}, notifying: {notifying}).");
 
-        // Some peripherals (e.g. the Mi Band) don't actually start notifying
-        // after StartNotify even though BlueZ reports success. Explicitly write
-        // the CCCD as a fallback.
-        try
-        {
-            await BlueZNativeInterop.WriteCccdAsync(_nativeCharacteristic, new byte[] { 0x01, 0x00 });
-        }
-        catch (Exception ex)
-        {
-            BluetoothLog.Retry($"Explicit CCCD write failed: {ex.Message}");
-        }
+        // Work around a BlueZ quirk where some peripherals don't start notifying
+        // after StartNotify alone (e.g. the Mi Band HR characteristic).
+        await BlueZNativeInterop.PrimeNotificationsAsync(_nativeCharacteristic);
     }
 
     public async Task StopNotificationsAsync()
