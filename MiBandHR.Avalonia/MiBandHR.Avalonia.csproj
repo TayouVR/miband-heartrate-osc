@@ -18,7 +18,7 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <PublishAot>true</PublishAot>
+<!--    <PublishAot>true</PublishAot>-->
   </PropertyGroup>
 
   <ItemGroup>

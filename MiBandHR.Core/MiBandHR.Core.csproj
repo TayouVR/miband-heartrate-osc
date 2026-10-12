@@ -13,7 +13,7 @@
     <PropertyGroup>
         <SelfContained>true</SelfContained>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <PublishAot>true</PublishAot>
+<!--        <PublishAot>true</PublishAot>-->
     </PropertyGroup>
 
     <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
