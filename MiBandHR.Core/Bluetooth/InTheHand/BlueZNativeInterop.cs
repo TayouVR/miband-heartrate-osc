@@ -20,24 +20,63 @@ internal static class BlueZNativeInterop
     // ------------------------------------------------------------------
 
     /// <summary>True when the BlueZ device reports Connected = true.</summary>
-    public static bool GetConnected(object nativeDevice)
+    public static async Task<bool> GetConnectedAsync(object nativeDevice)
     {
-        // Read the cached D-Bus property synchronously via GetAsync("Connected").
-        // The property is returned as Task<object>; block on it (it is local
-        // and fast) — the connection state must be answerable synchronously.
-        var value = GetPropertyAsync(nativeDevice, "Connected").GetAwaiter().GetResult();
-        return value is bool b && b;
+        // Linux.Bluetooth 5.x changed GetAsync<T> to a generic method that can't
+        // be invoked via reflection without knowing T at compile time.
+        // Use GetAllAsync() instead, which returns a properties DTO with typed
+        // properties we can read via reflection.
+        var props = await GetAllPropertiesAsync(nativeDevice);
+        var connectedProp = props.GetType().GetProperty("Connected");
+        return connectedProp?.GetValue(props) is bool b && b;
     }
 
     /// <summary>
-    /// Connects to the device WITHOUT pairing, then waits for Connected and
-    /// ServicesResolved. Mirrors Salar.BluetoothLE's Linux connect behaviour.
+    /// Connects to the device, then waits for Connected and ServicesResolved.
+    ///
+    /// For already-bonded devices BlueZ should automatically establish an
+    /// encrypted link when accessing <c>encrypt-notify</c> characteristics.
+    /// On Windows the BLE stack handles this transparently; on Linux BlueZ
+    /// triggers the security procedure lazily when the client calls
+    /// <c>StartNotify</c> on an encrypted characteristic.
+    ///
+    /// If the device is not yet paired, attempt pairing after connecting so
+    /// that the encrypted link is available for the auth handshake.
     /// </summary>
     public static async Task ConnectNoPairingAsync(object nativeDevice, TimeSpan timeout)
     {
         await InvokeTask(nativeDevice, "ConnectAsync");
-        await WaitForPropertyValueAsync(nativeDevice, "Connected", true, timeout);
-        await WaitForPropertyValueAsync(nativeDevice, "ServicesResolved", true, timeout);
+        await WaitForPropertyPollAsync(nativeDevice, "Connected", true, timeout);
+
+        // If the device is not yet paired, try to pair now so that
+        // encrypt-notify characteristics work. For already-bonded devices
+        // BlueZ handles encryption automatically when StartNotify is called.
+        var isPaired = await GetPropertyAsync(nativeDevice, "Paired");
+        if (isPaired is bool paired && !paired)
+        {
+            try
+            {
+                BluetoothLog.Info("Device not paired, attempting PairAsync...");
+                var pairTask = InvokeTask(nativeDevice, "PairAsync");
+                var pairTimeout = Task.Delay(TimeSpan.FromSeconds(15));
+                var pairFirst = await Task.WhenAny(pairTask, pairTimeout);
+                if (pairFirst != pairTimeout)
+                {
+                    await pairTask;
+                    BluetoothLog.Success("Pairing successful.");
+                }
+                else
+                {
+                    BluetoothLog.Retry("PairAsync timed out.");
+                }
+            }
+            catch (Exception ex)
+            {
+                BluetoothLog.Retry($"PairAsync failed ({ex.GetType().Name}): {ex.Message}");
+            }
+        }
+
+        await WaitForPropertyPollAsync(nativeDevice, "ServicesResolved", true, timeout);
     }
 
     /// <summary>Disconnects the device (best effort).</summary>
@@ -131,10 +170,11 @@ internal static class BlueZNativeInterop
         return task.GetType().GetProperty("Result")?.GetValue(task) as string ?? "";
     }
 
-    /// <summary>Writes a value to the characteristic with response.</summary>
+    /// <summary>Writes a value to the characteristic with response (reliable write).</summary>
     public static async Task WriteValueAsync(object nativeCharacteristic, byte[] data)
     {
         // WriteValueAsync(byte[] Value, IDictionary<string, object> Options)
+        // BlueZ D-Bus: type="request" = reliable write (write with response)
         var options = new Dictionary<string, object> { ["type"] = "request" };
         var method = nativeCharacteristic.GetType().GetMethod("WriteValueAsync")
             ?? throw new InvalidOperationException("Characteristic has no WriteValueAsync.");
@@ -142,34 +182,121 @@ internal static class BlueZNativeInterop
         if (task != null) await task;
     }
 
+    /// <summary>
+    /// Writes a value to the characteristic without waiting for a response.
+    /// The Mi Band protocol requires this write type for all command frames.
+    ///
+    /// BlueZ D-Bus: When the type option is omitted, BlueZ auto-selects the
+    /// write procedure based on the characteristic's Properties flags.
+    /// This is the same behavior as btleplug/bluez-async on Linux, and it
+    /// works for characteristics that support "write" but not "write-without-response".
+    ///
+    /// Retries on transient <c>org.bluez.Error.InProgress</c> errors, just like
+    /// the bleak Python library does.
+    /// </summary>
+    public static async Task WriteValueWithoutResponseAsync(object nativeCharacteristic, byte[] data)
+    {
+        // Omit the "type" option so BlueZ auto-selects the write procedure
+        // based on the characteristic's Properties. This matches the behavior
+        // of btleplug/bluez-async and tinygo-org/bluetooth on Linux.
+        // If the characteristic has the "write-without-response" flag, BlueZ
+        // will use "command"; otherwise it falls back to "request".
+        var options = new Dictionary<string, object>();
+        var method = nativeCharacteristic.GetType().GetMethod("WriteValueAsync")
+            ?? throw new InvalidOperationException("Characteristic has no WriteValueAsync.");
+
+        int attempt = 0;
+        while (true)
+        {
+            attempt++;
+            try
+            {
+                var task = (Task?)method.Invoke(nativeCharacteristic, new object[] { data, options });
+                if (task != null) await task;
+                return;
+            }
+            catch (Exception ex) when (IsBlueZInProgress(ex) && attempt < 5)
+            {
+                await Task.Delay(50);
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when the exception (or any inner exception) is the BlueZ
+    /// <c>org.bluez.Error.InProgress</c> D-Bus error.
+    /// </summary>
+    private static bool IsBlueZInProgress(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            var errorName = current.GetType().GetProperty("ErrorName")?.GetValue(current) as string;
+            if (errorName == "org.bluez.Error.InProgress")
+            {
+                return true;
+            }
+            if (current.Message?.Contains("org.bluez.Error.InProgress") == true)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------------
     // Property helpers
     // ------------------------------------------------------------------
 
-    private static async Task<object?> GetPropertyAsync(object nativeDevice, string propertyName)
+    /// <summary>
+    /// Reads all properties of a native BlueZ proxy via <c>GetAllAsync()</c>,
+    /// which returns a typed properties DTO (e.g., <c>Device1Properties</c>).
+    /// This avoids the generic <c>GetAsync&lt;T&gt;</c> which can't be invoked
+    /// via reflection in .NET 10.
+    /// </summary>
+    private static async Task<object> GetAllPropertiesAsync(object nativeProxy)
     {
-        var method = nativeDevice.GetType().GetMethod("GetAsync")
-            ?? throw new InvalidOperationException("Native device has no GetAsync.");
-        var task = (Task?)method.Invoke(nativeDevice, new object[] { propertyName });
-        if (task == null) return null;
+        var method = nativeProxy.GetType().GetMethod("GetAllAsync")
+            ?? throw new InvalidOperationException($"{nativeProxy.GetType().Name} has no GetAllAsync.");
+        var task = (Task?)method.Invoke(nativeProxy, null);
+        if (task == null)
+            throw new InvalidOperationException("GetAllAsync returned null.");
         await task;
-        return task.GetType().GetProperty("Result")?.GetValue(task);
+        var result = task.GetType().GetProperty("Result")?.GetValue(task);
+        if (result == null)
+            throw new InvalidOperationException("GetAllAsync returned null result.");
+        return result;
     }
 
     /// <summary>
-    /// Waits until a device property reaches the given value (or timeout),
-    /// using <c>Linux.Bluetooth.Extensions.Extensions.WaitForPropertyValueAsync</c>.
+    /// Reads a single property from the properties DTO returned by GetAllAsync.
     /// </summary>
-    private static async Task WaitForPropertyValueAsync(object nativeDevice, string propertyName, object value, TimeSpan timeout)
+    private static async Task<object?> GetPropertyAsync(object nativeProxy, string propertyName)
     {
-        var extensionType = GetExtensionType("Linux.Bluetooth.Extensions.Extensions");
-        var method = extensionType.GetMethods()
-            .FirstOrDefault(m => m.Name == "WaitForPropertyValueAsync" && m.IsGenericMethod)
-            ?? throw new InvalidOperationException("WaitForPropertyValueAsync not found.");
+        var props = await GetAllPropertiesAsync(nativeProxy);
+        var prop = props.GetType().GetProperty(propertyName);
+        return prop?.GetValue(props);
+    }
 
-        var generic = method.MakeGenericMethod(value.GetType());
-        var task = (Task?)generic.Invoke(null, new[] { nativeDevice, propertyName, value, timeout });
-        if (task != null) await task;
+    /// <summary>
+    /// Polls a device property until it reaches the desired value or the timeout
+    /// elapses. Replaces the old <c>WaitForPropertyValueAsync</c> which relied on
+    /// a generic extension method that can't be invoked via reflection in .NET 10.
+    /// </summary>
+    private static async Task WaitForPropertyPollAsync(object nativeProxy, string propertyName, object targetValue, TimeSpan timeout)
+    {
+        var deadline = DateTimeOffset.Now + timeout;
+        while (DateTimeOffset.Now < deadline)
+        {
+            var currentValue = await GetPropertyAsync(nativeProxy, propertyName);
+            if (Equals(currentValue, targetValue))
+            {
+                return;
+            }
+            await Task.Delay(100);
+        }
+
+        throw new TimeoutException(
+            $"Timed out waiting for property '{propertyName}' to become '{targetValue}'.");
     }
 
     private static async Task InvokeTask(object target, string methodName)

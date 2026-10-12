@@ -9,26 +9,15 @@ namespace MiBandHR.Core.Bluetooth.InTheHand;
 public sealed class BlueZGattCharacteristic : IGattCharacteristic
 {
     private readonly object _nativeCharacteristic;
-    private Guid? _uuid;
     private IDisposable? _propertyWatcher;
 
-    public BlueZGattCharacteristic(object nativeCharacteristic)
+    public BlueZGattCharacteristic(object nativeCharacteristic, Guid uuid)
     {
         _nativeCharacteristic = nativeCharacteristic;
+        Uuid = uuid;
     }
 
-    public Guid Uuid
-    {
-        get
-        {
-            if (_uuid == null)
-            {
-                var uuidString = BlueZNativeInterop.GetCharacteristicUuidAsync(_nativeCharacteristic).GetAwaiter().GetResult();
-                _uuid = Guid.Parse(uuidString);
-            }
-            return _uuid.Value;
-        }
-    }
+    public Guid Uuid { get; }
 
     public event EventHandler<GattCharacteristicValueChangedEventArgs>? CharacteristicValueChanged;
 

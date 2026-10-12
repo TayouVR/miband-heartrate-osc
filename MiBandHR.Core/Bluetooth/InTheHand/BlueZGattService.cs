@@ -7,29 +7,18 @@ namespace MiBandHR.Core.Bluetooth.InTheHand;
 public sealed class BlueZGattService : IGattService
 {
     private readonly object _nativeService;
-    private Guid? _uuid;
 
-    public BlueZGattService(object nativeService)
+    public BlueZGattService(object nativeService, Guid uuid)
     {
         _nativeService = nativeService;
+        Uuid = uuid;
     }
 
-    public Guid Uuid
-    {
-        get
-        {
-            if (_uuid == null)
-            {
-                var uuidString = BlueZNativeInterop.GetServiceUuidAsync(_nativeService).GetAwaiter().GetResult();
-                _uuid = Guid.Parse(uuidString);
-            }
-            return _uuid.Value;
-        }
-    }
+    public Guid Uuid { get; }
 
     public async Task<IGattCharacteristic?> GetCharacteristicAsync(Guid uuid)
     {
         var characteristic = await BlueZNativeInterop.GetCharacteristicAsync(_nativeService, uuid.ToString());
-        return characteristic == null ? null : new BlueZGattCharacteristic(characteristic);
+        return characteristic == null ? null : new BlueZGattCharacteristic(characteristic, uuid);
     }
 }

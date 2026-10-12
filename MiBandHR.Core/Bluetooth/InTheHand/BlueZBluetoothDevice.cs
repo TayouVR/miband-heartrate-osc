@@ -23,6 +23,7 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
 
     private readonly BluetoothDevice _inTheHandDevice;
     private object? _nativeDevice; // Linux.Bluetooth.Device
+    private bool _isConnected;
 
     public BlueZBluetoothDevice(BluetoothDevice device)
     {
@@ -33,20 +34,16 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
 
     public string Name => _inTheHandDevice.Name;
 
-    public bool IsConnected
-    {
-        get
-        {
-            try
-            {
-                return _nativeDevice != null && BlueZNativeInterop.GetConnected(_nativeDevice);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-    }
+    /// <summary>
+    /// True while a connection is believed to be established.
+    ///
+    /// This is a cached flag rather than a live D-Bus read: <see cref="IsConnected"/>
+    /// is a synchronous property that may be polled from the UI thread, and a
+    /// blocking <c>GetAllAsync</c> D-Bus round-trip there would freeze the UI.
+    /// The flag is set after <see cref="ConnectAsync"/> succeeds and cleared by
+    /// <see cref="Disconnect"/>.
+    /// </summary>
+    public bool IsConnected => _isConnected;
 
     /// <summary>
     /// Connects to the device via BlueZ <b>without pairing</b>, then waits for
@@ -56,8 +53,9 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
     {
         var device = GetNativeDevice();
 
-        if (BlueZNativeInterop.GetConnected(device))
+        if (await BlueZNativeInterop.GetConnectedAsync(device))
         {
+            _isConnected = true;
             return;
         }
 
@@ -65,10 +63,12 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
         try
         {
             await BlueZNativeInterop.ConnectNoPairingAsync(device, ConnectTimeout);
+            _isConnected = true;
             BluetoothLog.Success($"Connected to {Name}.");
         }
         catch (Exception e)
         {
+            _isConnected = false;
             BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
             throw;
         }
@@ -79,7 +79,7 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
         await ConnectAsync();
 
         var service = await BlueZNativeInterop.GetServiceAsync(GetNativeDevice(), uuid.ToString());
-        return service == null ? null : new BlueZGattService(service);
+        return service == null ? null : new BlueZGattService(service, uuid);
     }
 
     public async Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync()
@@ -90,17 +90,38 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
         var result = new List<IGattService>();
         foreach (var service in services)
         {
-            result.Add(new BlueZGattService(service));
+            // Resolve each service UUID asynchronously here (rather than via a
+            // blocking getter later) so the UI never waits on a D-Bus round-trip.
+            var uuidString = await BlueZNativeInterop.GetServiceUuidAsync(service);
+            result.Add(new BlueZGattService(service, Guid.Parse(uuidString)));
         }
         return result;
     }
 
     public void Disconnect()
     {
-        if (_nativeDevice != null)
+        _isConnected = false;
+
+        var nativeDevice = _nativeDevice;
+        if (nativeDevice == null)
         {
-            BlueZNativeInterop.Disconnect(_nativeDevice);
+            return;
         }
+
+        // The BlueZ disconnect is a blocking D-Bus round-trip. Run it on a
+        // background thread so calling Disconnect() from the UI thread never
+        // freezes the window while the D-Bus call is in flight.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                BlueZNativeInterop.Disconnect(nativeDevice);
+            }
+            catch
+            {
+                // Disconnect is best-effort; the link may already be down.
+            }
+        });
     }
 
     /// <summary>

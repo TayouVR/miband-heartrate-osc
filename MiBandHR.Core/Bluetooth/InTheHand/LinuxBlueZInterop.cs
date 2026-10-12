@@ -60,6 +60,11 @@ internal static class LinuxBlueZInterop
     /// Starts BlueZ notifications, retrying on the transient
     /// <c>org.bluez.Error.InProgress</c> error which BlueZ returns when a
     /// previous operation on the device has not fully settled yet.
+    ///
+    /// For characteristics with the <c>encrypt-notify</c> flag, BlueZ
+    /// automatically triggers the security procedure (encryption key exchange)
+    /// when StartNotify is called. This is transparent to the caller but may
+    /// add a brief delay.
     /// </summary>
     public static async Task StartNotifyWithRetryAsync(object nativeCharacteristic)
     {
@@ -92,6 +97,14 @@ internal static class LinuxBlueZInterop
             catch (Exception ex) when (IsBlueZInProgress(ex))
             {
                 BluetoothLog.Error($"StartNotify still busy after {MaxStartNotifyAttempts} attempts, giving up.");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Log any other errors (e.g., org.bluez.Error.Failed for
+                // encrypt-notify without encryption) so they are visible.
+                var errorName = ex.GetType().GetProperty("ErrorName")?.GetValue(ex) as string;
+                BluetoothLog.Error($"StartNotify failed (attempt {attempt}): {errorName ?? ex.GetType().Name} - {ex.Message}");
                 throw;
             }
         }
