@@ -32,6 +32,12 @@ public class DeviceConfig
 public class MonitoringConfig
 {
     public bool ContinuousMode { get; set; } = true;
+
+    /// <summary>Last recorded minimum heart rate (0 = none recorded yet).</summary>
+    public ushort MinHeartrate { get; set; }
+
+    /// <summary>Last recorded maximum heart rate (0 = none recorded yet).</summary>
+    public ushort MaxHeartrate { get; set; }
 }
 
 public class OutputConfig

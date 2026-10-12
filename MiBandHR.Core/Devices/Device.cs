@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using MiBandHR.Core.Configuration;
 
 namespace MiBandHR.Core.Devices
 {
@@ -18,6 +19,19 @@ namespace MiBandHR.Core.Devices
     public abstract class Device : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
+
+        protected Device()
+        {
+            try
+            {
+                _minHeartrate = ConfigurationManager.Instance.CurrentConfig.Monitoring.MinHeartrate;
+                _maxHeartrate = ConfigurationManager.Instance.CurrentConfig.Monitoring.MaxHeartrate;
+            }
+            catch (InvalidOperationException)
+            {
+                // Configuration not initialized (e.g. design-time data).
+            }
+        }
 
 
         string _name = "";
@@ -61,26 +75,43 @@ namespace MiBandHR.Core.Devices
         }
 
 
-        ushort _minHeartrate = 1000;
+        ushort _minHeartrate;
 
-        public ushort MinHeartrate {
+        public ushort? MinHeartrate {
             get { 
-                if (_heartrate < _minHeartrate && _heartrate != 0) {
+                if (_heartrate != 0 && (_minHeartrate == 0 || _heartrate < _minHeartrate)) {
                     _minHeartrate = _heartrate;
+                    SaveMinMaxHeartrate();
                 }
-                return _minHeartrate;
+                return _minHeartrate == 0 ? (ushort?)null : _minHeartrate;
             }
         }
 
 
         ushort _maxHeartrate;
 
-        public ushort MaxHeartrate {
+        public ushort? MaxHeartrate {
             get { 
                 if (_heartrate > _maxHeartrate) {
                     _maxHeartrate = _heartrate;
+                    SaveMinMaxHeartrate();
                 }
-                return _maxHeartrate; 
+                return _maxHeartrate == 0 ? (ushort?)null : _maxHeartrate;
+            }
+        }
+
+        private void SaveMinMaxHeartrate()
+        {
+            try
+            {
+                var monitoring = ConfigurationManager.Instance.CurrentConfig.Monitoring;
+                monitoring.MinHeartrate = _minHeartrate;
+                monitoring.MaxHeartrate = _maxHeartrate;
+                ConfigurationManager.Instance.SaveConfiguration();
+            }
+            catch (InvalidOperationException)
+            {
+                // Configuration not initialized.
             }
         }
 
