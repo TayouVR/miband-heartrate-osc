@@ -30,7 +30,7 @@ namespace MiBand_Heartrate.Extras
             _device.PropertyChanged -= OnDeviceChanged;
         }
 
-        private void OnDeviceChanged(object sender, PropertyChangedEventArgs e)
+        private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "Heartrate" && ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled)
             {

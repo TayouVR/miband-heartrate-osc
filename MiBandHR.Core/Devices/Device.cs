@@ -18,7 +18,7 @@ namespace MiBandHR.Core.Devices
 
     public abstract class Device : INotifyPropertyChanged
     {
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         protected Device()
         {
@@ -34,29 +34,21 @@ namespace MiBandHR.Core.Devices
         }
 
 
-        string _name = "";
-
-        public string Name
-        {
-            get { return _name; }
-            set
-            {
-                _name = value;
+        public string Name {
+            get;
+            protected init {
+                field = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Name"));
             }
-        }
+        } = "";
 
-        DeviceStatus _status = Devices.DeviceStatus.OFFLINE;
-
-        public DeviceStatus Status
-        {
-            get { return _status; }
-            internal set
-            {
-                _status = value;
+        public DeviceStatus Status {
+            get;
+            internal set {
+                field = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Status"));
             }
-        }
+        } = Devices.DeviceStatus.OFFLINE;
 
 
         public DeviceModel Model { get; internal set; }
@@ -65,7 +57,7 @@ namespace MiBandHR.Core.Devices
         ushort _heartrate;
 
         public ushort Heartrate {
-            get { return _heartrate; }
+            get => _heartrate;
             internal set {
                 _heartrate = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Heartrate"));
@@ -116,14 +108,10 @@ namespace MiBandHR.Core.Devices
         }
 
 
-        bool _heartrateMonitorStarted;
-
-        public bool HeartrateMonitorStarted
-        {
-            get { return _heartrateMonitorStarted; }
-            internal set
-            {
-                _heartrateMonitorStarted = value;
+        public bool HeartrateMonitorStarted {
+            get;
+            internal set {
+                field = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("HeartrateMonitorStarted"));
             }
         }

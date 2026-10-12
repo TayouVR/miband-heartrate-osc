@@ -14,7 +14,7 @@ public class DeviceHeartrateOscOutput {
     private UdpClient _udpClient;
     private Socket _socket;
 
-    private CancellationTokenSource _cancellationTokenSource;
+    private CancellationTokenSource? _cancellationTokenSource;
 
     private static class Addresses {
         private const string ParametersAddress = "/avatar/parameters";
@@ -106,7 +106,7 @@ public class DeviceHeartrateOscOutput {
         _cancellationTokenSource = null;
     }
 
-    private void OnDeviceChanged(object sender, PropertyChangedEventArgs e) {
+    private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e) {
         var device = sender as Device;
         if(device == null) return;
             

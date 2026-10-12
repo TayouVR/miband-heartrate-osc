@@ -6,7 +6,7 @@ namespace MiBandHR.Core.Devices
     {
         bool _running;
 
-        Thread _worker;
+        Thread? _worker;
 
         public Dummy_Device() {
             Name = "Dummy";

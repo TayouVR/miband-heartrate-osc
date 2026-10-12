@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Input;
 using Avalonia.Threading;
 using MiBand_Heartrate.Extras;
 using MiBandHR.Avalonia.Views;
@@ -23,10 +21,7 @@ public class MainViewModel : ViewModelBase
         public override string ToString() => Label;
     }
 
-    private Device? _device;
     private BLE? _autoConnectBluetooth;
-    private bool _isConnected;
-    private string _statusText = "No device connected";
     private bool _guard;
 
     private DeviceHeartrateFileOutput? _fileOutput;
@@ -76,22 +71,18 @@ public class MainViewModel : ViewModelBase
         });
     }
 
-    public Device? Device
-    {
-        get => _device;
-        set
-        {
-            if (_device != null)
-            {
-                _device.PropertyChanged -= OnDevicePropertyChanged;
-                _device.Dispose();
+    public Device? Device {
+        get;
+        set {
+            if (field != null) {
+                field.PropertyChanged -= OnDevicePropertyChanged;
+                field.Dispose();
             }
 
-            _device = value;
+            field = value;
 
-            if (_device != null)
-            {
-                _device.PropertyChanged += OnDevicePropertyChanged;
+            if (field != null) {
+                field.PropertyChanged += OnDevicePropertyChanged;
             }
 
             DeviceUpdate();
@@ -99,26 +90,22 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    public bool IsConnected
-    {
-        get => _isConnected;
-        set
-        {
-            _isConnected = value;
+    public bool IsConnected {
+        get;
+        set {
+            field = value;
             OnPropertyChanged(nameof(IsConnected));
             OnPropertyChanged(nameof(ShowConnectButtons));
         }
     }
 
-    public string StatusText
-    {
-        get => _statusText;
-        set
-        {
-            _statusText = value;
+    public string StatusText {
+        get;
+        set {
+            field = value;
             OnPropertyChanged(nameof(StatusText));
         }
-    }
+    } = "No device connected";
 
     /// <summary>True while no device is connected (the manual/auto connect buttons are visible).</summary>
     public bool ShowConnectButtons => !IsConnected;
@@ -144,7 +131,7 @@ public class MainViewModel : ViewModelBase
             .Select(b => new BluetoothBackendOption(b, DisplayName(b)))
             .ToList();
 
-    public BluetoothBackendOption SelectedBluetoothBackend
+    public BluetoothBackendOption? SelectedBluetoothBackend
     {
         get => AvailableBackends.FirstOrDefault(o => o.Value == ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend)
                ?? AvailableBackends.First();
@@ -188,14 +175,14 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    public bool EnableCSVOutput
+    public bool EnableCsvOutput
     {
         get => ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled;
         set
         {
             ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled = value;
             ConfigurationManager.Instance.SaveConfiguration();
-            OnPropertyChanged(nameof(EnableCSVOutput));
+            OnPropertyChanged(nameof(EnableCsvOutput));
         }
     }
 
@@ -297,7 +284,7 @@ public class MainViewModel : ViewModelBase
             _fileOutput = new DeviceHeartrateFileOutput("heartrate.txt", Device);
         }
 
-        if (EnableCSVOutput)
+        if (EnableCsvOutput)
         {
             _csvOutput = new DeviceHeartrateCSVOutput("heartrate.csv", Device);
         }

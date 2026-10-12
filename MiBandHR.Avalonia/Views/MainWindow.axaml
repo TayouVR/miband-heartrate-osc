@@ -64,7 +64,7 @@
                 <StackPanel Margin="5">
                     <CheckBox Margin="0 2" IsChecked="{Binding UseAutoConnect}">Use Auto Connect</CheckBox>
                     <CheckBox Margin="0 2" IsChecked="{Binding ContinuousMode}">Enable continuous mode</CheckBox>
-                    <CheckBox Margin="0 2" IsChecked="{Binding EnableCSVOutput}">Export data in CSV file</CheckBox>
+                    <CheckBox Margin="0 2" IsChecked="{Binding EnableCsvOutput}">Export data in CSV file</CheckBox>
                     <CheckBox Margin="0 2" IsChecked="{Binding EnableFileOutput}">Write realtime data in text file</CheckBox>
                     <CheckBox Margin="0 2" IsChecked="{Binding EnableOscOutput}">Send OSC to VRChat</CheckBox>
 

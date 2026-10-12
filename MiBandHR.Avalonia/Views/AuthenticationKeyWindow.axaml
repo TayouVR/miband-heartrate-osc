@@ -21,7 +21,7 @@
             <TextBox Grid.Column="1"
                      VerticalContentAlignment="Center"
                      Text="{Binding Key}"
-                     Watermark="0123456789abcdef0123456789abcdef" />
+                     PlaceholderText="0123456789abcdef0123456789abcdef" />
         </Grid>
 
         <TextBlock Margin="0 4 0 0"
