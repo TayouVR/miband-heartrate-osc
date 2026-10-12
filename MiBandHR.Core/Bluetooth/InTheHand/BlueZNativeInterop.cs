@@ -34,48 +34,17 @@ internal static class BlueZNativeInterop
     /// <summary>
     /// Connects to the device, then waits for Connected and ServicesResolved.
     ///
-    /// For already-bonded devices BlueZ should automatically establish an
-    /// encrypted link when accessing <c>encrypt-notify</c> characteristics.
-    /// On Windows the BLE stack handles this transparently; on Linux BlueZ
-    /// triggers the security procedure lazily when the client calls
-    /// <c>StartNotify</c> on an encrypted characteristic.
-    ///
-    /// If the device is not yet paired, attempt pairing after connecting so
-    /// that the encrypted link is available for the auth handshake.
+    /// No BlueZ-level pairing is performed: the Mi Band authentication is done
+    /// at the application layer (AES challenge/response), so forcing BlueZ to
+    /// pair would only trigger an extra "confirm pairing" prompt on the band
+    /// without adding anything. For already-bonded devices BlueZ establishes the
+    /// encrypted link lazily when <c>StartNotify</c> is called on an
+    /// <c>encrypt-notify</c> characteristic.
     /// </summary>
     public static async Task ConnectNoPairingAsync(object nativeDevice, TimeSpan timeout)
     {
         await InvokeTask(nativeDevice, "ConnectAsync");
         await WaitForPropertyPollAsync(nativeDevice, "Connected", true, timeout);
-
-        // If the device is not yet paired, try to pair now so that
-        // encrypt-notify characteristics work. For already-bonded devices
-        // BlueZ handles encryption automatically when StartNotify is called.
-        var isPaired = await GetPropertyAsync(nativeDevice, "Paired");
-        if (isPaired is bool paired && !paired)
-        {
-            try
-            {
-                BluetoothLog.Info("Device not paired, attempting PairAsync...");
-                var pairTask = InvokeTask(nativeDevice, "PairAsync");
-                var pairTimeout = Task.Delay(TimeSpan.FromSeconds(15));
-                var pairFirst = await Task.WhenAny(pairTask, pairTimeout);
-                if (pairFirst != pairTimeout)
-                {
-                    await pairTask;
-                    BluetoothLog.Success("Pairing successful.");
-                }
-                else
-                {
-                    BluetoothLog.Retry("PairAsync timed out.");
-                }
-            }
-            catch (Exception ex)
-            {
-                BluetoothLog.Retry($"PairAsync failed ({ex.GetType().Name}): {ex.Message}");
-            }
-        }
-
         await WaitForPropertyPollAsync(nativeDevice, "ServicesResolved", true, timeout);
     }
 
