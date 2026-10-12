@@ -200,7 +200,16 @@ public class DeviceHeartrateOscOutput {
     private void SendOSCMessages(string[] addresses, params object[] args) {
         if (!ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled) return;
         foreach (var address in addresses) {
-            _socket.Send(new OscMessage(address, args).ToByteArray());
+            try {
+                _socket.Send(new OscMessage(address, args).ToByteArray());
+            }
+            catch (SocketException) {
+                // The OSC receiver (e.g. VRChat) is not listening. UDP is
+                // best-effort, so drop the packet rather than crashing the app.
+            }
+            catch (ObjectDisposedException) {
+                // Socket already closed during shutdown.
+            }
         }
     }
 }
