@@ -7,7 +7,6 @@
         <Nullable>enable</Nullable>
         <EnableWindowsTargeting Condition="'$(OS)' != 'Windows_NT'">true</EnableWindowsTargeting>
         <DefineConstants Condition="$(TargetFramework.Contains('-windows'))">$(DefineConstants);WINDOWS</DefineConstants>
-        <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     </PropertyGroup>
 
     <PropertyGroup>

@@ -40,7 +40,7 @@ public class ConfigurationManager
         }
 
         var tomlString = File.ReadAllText(_configPath);
-        return TomlSerializer.Deserialize(tomlString, AppConfigTomlContext.Default.AppConfig);
+        return TomlSerializer.Deserialize(tomlString, AppConfigTomlContext.Default.AppConfig)!;
     }
 
     public void SaveConfiguration(AppConfig? config = null)

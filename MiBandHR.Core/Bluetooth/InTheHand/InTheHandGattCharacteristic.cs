@@ -31,7 +31,8 @@ public sealed class InTheHandGattCharacteristic : IGattCharacteristic
     private void OnInTheHandValueChanged(object? sender,
         global::InTheHand.Bluetooth.GattCharacteristicValueChangedEventArgs args)
     {
-        CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(args.Value));
+        if (args.Value is not { } value) return;
+        CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
     }
 
     public Task WriteValueWithResponseAsync(byte[] data)

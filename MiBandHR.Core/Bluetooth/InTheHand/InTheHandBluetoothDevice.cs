@@ -54,5 +54,8 @@ public sealed class InTheHandBluetoothDevice : IBluetoothDevice
     }
 
     public void Disconnect() => _device.Gatt.Disconnect();
+    // TODO: implement disconnect detection and raise Disconnected for this backend.
+#pragma warning disable CS0067
     public event EventHandler? Disconnected;
+#pragma warning restore CS0067
 }

@@ -27,7 +27,10 @@ public sealed class SalarBluetoothDevice : IBluetoothDevice
     private readonly string _name;
     private IBleDevice? _device;
 
+    // TODO: implement disconnect detection and raise Disconnected for this backend.
+#pragma warning disable CS0067
     public event EventHandler? Disconnected;
+#pragma warning restore CS0067
 
     public SalarBluetoothDevice(IBleAdapter adapter, string address, string name)
     {

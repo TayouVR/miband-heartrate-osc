@@ -29,7 +29,10 @@ public sealed class WindowsBluetoothDevice : IBluetoothDevice
 
     public bool IsConnected => _device?.ConnectionStatus == BluetoothConnectionStatus.Connected;
 
+    // TODO: implement disconnect detection and raise Disconnected for this backend.
+#pragma warning disable CS0067
     public event EventHandler? Disconnected;
+#pragma warning restore CS0067
 
     public async Task ConnectAsync()
     {

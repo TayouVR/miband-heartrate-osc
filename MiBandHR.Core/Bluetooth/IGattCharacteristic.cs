@@ -45,7 +45,7 @@ public interface IGattCharacteristic
 /// </summary>
 public sealed class GattCharacteristicValueChangedEventArgs : EventArgs
 {
-    public GattCharacteristicValueChangedEventArgs(byte[]? value)
+    public GattCharacteristicValueChangedEventArgs(byte[] value)
     {
         Value = value;
     }

@@ -18,10 +18,7 @@ namespace MiBand_Heartrate.Extras
 
             _device = device;
 
-            if (_device != null)
-            {
-                _device.PropertyChanged += OnDeviceChanged;
-            }
+            _device.PropertyChanged += OnDeviceChanged;
         }
 
         ~DeviceHeartrateCSVOutput()
