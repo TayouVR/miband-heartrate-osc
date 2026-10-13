@@ -1,7 +1,4 @@
-using System.Reflection;
-using InTheHand.Bluetooth;
 using Linux.Bluetooth;
-using Linux.Bluetooth.Extensions;
 using Tmds.DBus;
 using GattCharacteristic = Linux.Bluetooth.GattCharacteristic;
 
@@ -24,13 +21,7 @@ internal static class BlueZNativeInterop {
 
     /// <summary>True when the BlueZ device reports Connected = true.</summary>
     public static async Task<bool> GetConnectedAsync(Device nativeDevice) {
-        // Linux.Bluetooth 5.x changed GetAsync<T> to a generic method that can't
-        // be invoked via reflection without knowing T at compile time.
-        // Use GetAllAsync() instead, which returns a properties DTO with typed
-        // properties we can read via reflection.
-        var props = await nativeDevice.GetAllAsync();
-        var connectedProp = props.GetType().GetProperty("Connected");
-        return connectedProp?.GetValue(props) is bool b && b;
+        return (await nativeDevice.GetAllAsync()).Connected;
     }
 
     /// <summary>
@@ -45,8 +36,8 @@ internal static class BlueZNativeInterop {
     /// </summary>
     public static async Task ConnectNoPairingAsync(Device nativeDevice, TimeSpan timeout) {
         await nativeDevice.ConnectAsync();
-        await WaitForPropertyPollAsync(nativeDevice, "Connected", true, timeout);
-        await WaitForPropertyPollAsync(nativeDevice, "ServicesResolved", true, timeout);
+        await WaitForDevicePropertyAsync(nativeDevice, p => p.Connected, "Connected", timeout);
+        await WaitForDevicePropertyAsync(nativeDevice, p => p.ServicesResolved, "ServicesResolved", timeout);
     }
 
     /// <summary>Disconnects the device (best effort).</summary>
@@ -111,54 +102,27 @@ internal static class BlueZNativeInterop {
     /// written here; BlueZ manages it via <c>StartNotify</c>.
     /// </summary>
     public static async Task PrimeNotificationsAsync(GattCharacteristic nativeCharacteristic) {
+        var objectManager = Connection.System.CreateProxy<IObjectManager>("org.bluez", "/");
+        var objects = await objectManager.GetManagedObjectsAsync();
+        
 
-        var getProxiesMethod =
-            typeof(BlueZManager).GetMethod("GetProxiesAsync", BindingFlags.NonPublic | BindingFlags.Static)
-            ?? throw new InvalidOperationException("BlueZManager.GetProxiesAsync not found.");
-        var getProxiesGeneric = getProxiesMethod.MakeGenericMethod(typeof(IGattDescriptor1));
-
-        var task = (Task?)getProxiesGeneric.Invoke(null,
-            ["org.bluez.GattDescriptor1", nativeCharacteristic]);
-        if (task == null) return;
-        await task;
-
-        if (task.GetType().GetProperty("Result")?.GetValue(task) is not IReadOnlyList<IGattDescriptor1> descriptors) {
-            return;
-        }
-
-        foreach (var descriptor in descriptors) {
-            var uuid = await descriptor.GetAllAsync();
+        foreach (var (path, interfaces) in objects)
+        {
+            if (!interfaces.ContainsKey("org.bluez.GattDescriptor1")) continue;
+            if (!path.ToString().StartsWith(nativeCharacteristic.ObjectPath + "/")) continue;
+            var uuid = await Connection.System.CreateProxy<IGattDescriptor1>("org.bluez", path).GetAllAsync();
             // BluetoothLog.Info($"  Descriptor: {uuid}");
         }
     }
 
-    /// <summary>
-    /// Reads a single property from the properties DTO returned by GetAllAsync.
-    /// </summary>
-    private static async Task<object?> GetPropertyAsync(Device nativeProxy, string propertyName) {
-        var props = await nativeProxy.GetAllAsync();
-        var prop = props.GetType().GetProperty(propertyName);
-        return prop?.GetValue(props);
-    }
-
-    /// <summary>
-    /// Polls a device property until it reaches the desired value or the timeout
-    /// elapses. Replaces the old <c>WaitForPropertyValueAsync</c> which relied on
-    /// a generic extension method that can't be invoked via reflection in .NET 10.
-    /// </summary>
-    private static async Task WaitForPropertyPollAsync(Device nativeProxy, string propertyName, object targetValue,
-        TimeSpan timeout) {
+    private static async Task WaitForDevicePropertyAsync(Device device, Func<Device1Properties, bool> predicate,
+        string name, TimeSpan timeout) {
         var deadline = DateTimeOffset.Now + timeout;
         while (DateTimeOffset.Now < deadline) {
-            var currentValue = await GetPropertyAsync(nativeProxy, propertyName);
-            if (Equals(currentValue, targetValue)) {
-                return;
-            }
-
+            if (predicate(await device.GetAllAsync())) return;
             await Task.Delay(100);
         }
 
-        throw new TimeoutException(
-            $"Timed out waiting for property '{propertyName}' to become '{targetValue}'.");
+        throw new TimeoutException($"Timed out waiting for {name}.");
     }
 }
