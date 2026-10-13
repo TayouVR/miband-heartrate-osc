@@ -89,8 +89,8 @@ public class DeviceHeartrateOscOutput {
             
         _device = device;
 
-            _device.PropertyChanged += OnDeviceChanged;
-        }
+        _device.PropertyChanged += OnDeviceChanged;
+    }
 
     ~DeviceHeartrateOscOutput() {
         _device.PropertyChanged -= OnDeviceChanged;
@@ -122,37 +122,47 @@ public class DeviceHeartrateOscOutput {
         }
             
         // this might send a bit often, should check if thats an issue
-        SendOSCMessages(new[]{Addresses.DeviceConnected, Addresses.HRConnected}, _hrConnected);
+        SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
     }
 
     private void OnChangeHeartrate() {
         var heartRateInt = (int)_device.Heartrate;
         var heartRateFloat = _device.Heartrate / 127f - 1f;
         var heartRateFloat01 = _device.Heartrate / 255f;
+        var minHeartRate = (int)(_device.MinHeartrate ?? 0);
+        var maxHeartRate = (int)(_device.MaxHeartrate ?? 0);
 
-        SendOSCMessages(new[]{
+        SendOSCMessages([
             Addresses.HeartRateInt, 
             Addresses.HeartRate3, 
             Addresses.HRInt
-        }, heartRateInt);
+        ], heartRateInt);
 
-        SendOSCMessages(new[] {
+        SendOSCMessages([
             Addresses.HeartRateFloat, 
             Addresses.HeartRate, 
             Addresses.HeartRateFloatHR, 
             Addresses.HRFloat
-        }, heartRateFloat);
+        ], heartRateFloat);
 
-        SendOSCMessages(new[] {
+        SendOSCMessages([
             Addresses.HeartRateFloat01, 
             Addresses.HeartRate2, 
             Addresses.HRFloatHalf
-        }, heartRateFloat01);
+        ], heartRateFloat01);
+
+        SendOSCMessages([
+            Addresses.MinHeartRate
+        ], minHeartRate);
+
+        SendOSCMessages([
+            Addresses.MaxHeartRate
+        ], maxHeartRate);
     }
 
     private void OnHeartrateMonitorStarted() {
         _hrConnected = true;
-        SendOSCMessages(new[]{Addresses.DeviceConnected, Addresses.HRConnected}, _hrConnected);
+        SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
             
         _cancellationTokenSource = new CancellationTokenSource();
         var _ = SendLoop(_cancellationTokenSource.Token);
@@ -160,7 +170,7 @@ public class DeviceHeartrateOscOutput {
 
     private void OnHeartrateMonitorStopped() {
         _hrConnected = false;
-        SendOSCMessages(new[]{Addresses.DeviceConnected, Addresses.HRConnected}, _hrConnected);
+        SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
             
         Cancel();
     }
@@ -182,15 +192,15 @@ public class DeviceHeartrateOscOutput {
     }
 
     private async Task Send(int span, CancellationToken cancellationToken) {
-        SendOSCMessages(new[]{Addresses.HeartBeatInt}, 1);
-        SendOSCMessages(new[]{Addresses.HeartBeatPulse, Addresses.HRBeat}, true);
-        SendOSCMessages(new[]{Addresses.HeartBeatToggle, Addresses.HRBeatToggle}, _currentBeatToggle);
+        SendOSCMessages([Addresses.HeartBeatInt], 1);
+        SendOSCMessages([Addresses.HeartBeatPulse, Addresses.HRBeat], true);
+        SendOSCMessages([Addresses.HeartBeatToggle, Addresses.HRBeatToggle], _currentBeatToggle);
             
         // Wait for QRS interval
         await Task.Delay(span / 5, cancellationToken);
 
-        SendOSCMessages(new[]{Addresses.HeartBeatInt}, 0);
-        SendOSCMessages(new[]{Addresses.HeartBeatPulse, Addresses.HRBeat}, false);
+        SendOSCMessages([Addresses.HeartBeatInt], 0);
+        SendOSCMessages([Addresses.HeartBeatPulse, Addresses.HRBeat], false);
             
         _currentBeatToggle = !_currentBeatToggle;
     }
