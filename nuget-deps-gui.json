@@ -141,13 +141,8 @@
   },
   {
     "pname": "InTheHand.BluetoothLE",
-    "version": "4.0.35",
-    "hash": "sha256-qE07WBIWllq00h00f6zgMzfuDBwlnnf2QgG5ziyELwM="
-  },
-  {
-    "pname": "Linux.Bluetooth",
-    "version": "5.64.0",
-    "hash": "sha256-0DHRdpzmmkfu8Wv6H2m5CqaXUnTi/lygcw1fe+KhjlQ="
+    "version": "4.0.45",
+    "hash": "sha256-UGTDY/pVtaRGy0ultf/3MSOx5QCusf9ox1baaVF/oiI="
   },
   {
     "pname": "Linux.Bluetooth",
@@ -220,13 +215,18 @@
     "hash": "sha256-xKKZLlv0X6bWenTvbxNp2J8N8XTAzomSlH2GnWCQ4Bg="
   },
   {
+    "pname": "Tmds.DBus",
+    "version": "0.95.1",
+    "hash": "sha256-dSyAuZJkiI9219NbD44w3OrGB5nIjPz3Vyd1C6kVQYE="
+  },
+  {
     "pname": "Tmds.DBus.Protocol",
     "version": "0.94.1",
     "hash": "sha256-T3HQasQOcl/7zxt5hT3ZMhhpWoTyPTb6/IX0d6TJWA8="
   },
   {
     "pname": "Tomlyn",
-    "version": "0.19.0",
-    "hash": "sha256-TPw6K1JzN1FUyGSpANHu5lDW2mFN1sg0apMNKMOBX+8="
+    "version": "2.10.1",
+    "hash": "sha256-Dcceh+BjppBtDoSLydw7K8v5cEI9HGEIy2OEsosW2kM="
   }
 ]

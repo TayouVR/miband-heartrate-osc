@@ -40,7 +40,7 @@ public class ConfigurationManager
         }
 
         var tomlString = File.ReadAllText(_configPath);
-        return Toml.ToModel<AppConfig>(tomlString);
+        return TomlSerializer.Deserialize(tomlString, AppConfigTomlContext.Default.AppConfig);
     }
 
     public void SaveConfiguration(AppConfig? config = null)
@@ -49,7 +49,7 @@ public class ConfigurationManager
         {
             _currentConfig = config;
         }
-        var tomlString = Toml.FromModel(_currentConfig);
+        var tomlString = TomlSerializer.Serialize(_currentConfig, AppConfigTomlContext.Default.AppConfig);
         var directory = Path.GetDirectoryName(_configPath);
         if (directory != null && !Directory.Exists(directory))
         {

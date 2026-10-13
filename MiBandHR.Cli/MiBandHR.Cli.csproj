@@ -22,8 +22,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="System.CommandLine" Version="2.0.0-beta6.25358.103" />
-      <PackageReference Include="Spectre.Console" Version="0.49.1" />
+      <PackageReference Include="System.CommandLine" Version="2.0.12" />
+      <PackageReference Include="Spectre.Console" Version="0.57.2" />
     </ItemGroup>
 
 </Project>

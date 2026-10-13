@@ -21,11 +21,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="InTheHand.BluetoothLE" Version="4.0.35" />
+      <PackageReference Include="InTheHand.BluetoothLE" Version="4.0.45" />
       <PackageReference Include="Linux.Bluetooth" Version="5.67.1" Condition="!$(TargetFramework.Contains('-windows'))" />
       <PackageReference Include="OscCore" Version="1.0.5" />
       <PackageReference Include="Salar.BluetoothLE" Version="1.2.0" />
-      <PackageReference Include="Tomlyn" Version="0.19.0" />
+      <PackageReference Include="Tomlyn" Version="2.10.1" />
     </ItemGroup>
 
 </Project>
