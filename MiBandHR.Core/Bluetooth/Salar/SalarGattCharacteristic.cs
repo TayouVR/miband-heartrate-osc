@@ -14,12 +14,10 @@ namespace MiBandHR.Core.Bluetooth.Salar;
 /// <c>org.bluez.Error.InProgress</c> race to retry. The callback is simply
 /// forwarded to the <see cref="CharacteristicValueChanged"/> event.
 /// </summary>
-public sealed class SalarGattCharacteristic : IGattCharacteristic
-{
+public sealed class SalarGattCharacteristic : IGattCharacteristic {
     private readonly IBleCharacteristic _characteristic;
 
-    public SalarGattCharacteristic(IBleCharacteristic characteristic)
-    {
+    public SalarGattCharacteristic(IBleCharacteristic characteristic) {
         _characteristic = characteristic;
     }
 
@@ -34,38 +32,29 @@ public sealed class SalarGattCharacteristic : IGattCharacteristic
     /// No-op for Salar: the value callback is registered in
     /// <see cref="StartNotificationsAsync"/>. Kept to satisfy the interface.
     /// </summary>
-    public void SubscribeToValueChanges()
-    {
+    public void SubscribeToValueChanges() {
         // Salar registers the notification handler in StartNotificationsAsync,
         // so there is nothing to wire up ahead of time here.
     }
 
-    public async Task WriteValueWithResponseAsync(byte[] data)
-    {
+    public async Task WriteValueWithResponseAsync(byte[] data) {
         await _characteristic.WriteAsync(data, WriteType.WithResponse);
     }
 
-    public async Task WriteValueWithoutResponseAsync(byte[] data)
-    {
+    public async Task WriteValueWithoutResponseAsync(byte[] data) {
         await _characteristic.WriteAsync(data, WriteType.WithoutResponse);
     }
 
-    public async Task StartNotificationsAsync()
-    {
-        await _characteristic.StartNotificationsAsync(value =>
-        {
+    public async Task StartNotificationsAsync() {
+        await _characteristic.StartNotificationsAsync(value => {
             CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
         });
     }
 
-    public async Task StopNotificationsAsync()
-    {
-        try
-        {
+    public async Task StopNotificationsAsync() {
+        try {
             await _characteristic.StopNotificationsAsync();
-        }
-        catch
-        {
+        } catch {
             // Stopping notifications is best-effort; the connection may already be gone.
         }
     }

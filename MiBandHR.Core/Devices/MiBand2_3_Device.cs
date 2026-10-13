@@ -2,8 +2,7 @@ using System.Security.Cryptography;
 using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Configuration;
 
-namespace MiBandHR.Core.Devices
-{
+namespace MiBandHR.Core.Devices {
     /// <summary>
     /// Mi Band 2 and Mi Band 3.
     ///
@@ -12,13 +11,10 @@ namespace MiBandHR.Core.Devices
     /// "paired" with it (the user has to confirm by touching the band's button).
     /// See docs/AUTHENTICATION.md for the full protocol description.
     /// </summary>
-    public class MiBand2_3_Device : MiBandDeviceBase
-    {
+    public class MiBand2_3_Device : MiBandDeviceBase {
         private byte[]? _key;
 
-        public MiBand2_3_Device(IBluetoothDevice device) : base(device, DeviceModel.MIBAND_2_3)
-        {
-        }
+        public MiBand2_3_Device(IBluetoothDevice device) : base(device, DeviceModel.Miband2_3) { }
 
         /// <summary>
         /// Returns the authentication key for this band.
@@ -28,20 +24,16 @@ namespace MiBandHR.Core.Devices
         /// same key — the band stores the first key it accepts and rejects any
         /// different key afterwards. A factory reset makes the band forget it.
         /// </summary>
-        protected override byte[] GetAuthenticationKey()
-        {
-            if (_key != null)
-            {
+        protected override byte[] GetAuthenticationKey() {
+            if (_key != null) {
                 return _key;
             }
 
             var deviceConfig = ConfigurationManager.Instance.CurrentConfig.Device;
-            if (deviceConfig.AuthKeys.TryGetValue(DeviceId, out var hexKey))
-            {
+            if (deviceConfig.AuthKeys.TryGetValue(DeviceId, out var hexKey)) {
                 _key = Convert.FromHexString(hexKey);
             }
-            else
-            {
+            else {
                 _key = SHA256.HashData(Guid.NewGuid().ToByteArray()).Take(16).ToArray();
                 deviceConfig.AuthKeys[DeviceId] = Convert.ToHexString(_key);
                 ConfigurationManager.Instance.SaveConfiguration();
@@ -54,8 +46,7 @@ namespace MiBandHR.Core.Devices
         /// Mi Band 2/3 pairing starts by sending the key to the band:
         /// <c>0x01 0x08 + 16 byte key</c>.
         /// </summary>
-        protected override byte[] GetInitialAuthCommand()
-        {
+        protected override byte[] GetInitialAuthCommand() {
             return Combine(new byte[] { 0x01, 0x08 }, GetAuthenticationKey());
         }
     }

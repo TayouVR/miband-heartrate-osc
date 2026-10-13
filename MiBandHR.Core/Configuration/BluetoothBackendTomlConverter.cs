@@ -4,8 +4,7 @@ using Tomlyn.Serialization;
 
 namespace MiBandHR.Core.Configuration;
 
-public sealed class BluetoothBackendTomlConverter : TomlConverter<BluetoothBackend>
-{
+public sealed class BluetoothBackendTomlConverter : TomlConverter<BluetoothBackend> {
     public override BluetoothBackend Read(TomlReader reader)
         => Enum.Parse<BluetoothBackend>(reader.GetString());
 

@@ -1,21 +1,22 @@
 // Configuration/AppConfig.cs
+
 using MiBandHR.Core.Bluetooth;
 
 namespace MiBandHR.Core.Configuration;
 
-public class AppConfig
-{
+public class AppConfig {
     public DeviceConfig Device { get; set; } = new();
     public MonitoringConfig Monitoring { get; set; } = new();
     public OutputConfig Output { get; set; } = new();
     public WindowConfig Window { get; set; } = new();
 }
 
-public class DeviceConfig
-{
+public class DeviceConfig {
     public bool UseAutoConnect { get; set; }
+
     /// <summary>Selected Bluetooth backend. When unavailable on the current platform the app falls back without overwriting this value.</summary>
     public BluetoothBackend BluetoothBackend { get; set; } = BluetoothBackend.Auto;
+
     public string AutoConnectDeviceVersion { get; set; } = "3";
     public string AutoConnectDeviceName { get; set; } = "Mi Band 3";
     public string AutoConnectDeviceAuthKey { get; set; } = "0123456789abcdef0123456789abcdef";
@@ -29,8 +30,7 @@ public class DeviceConfig
     public Dictionary<string, string> AuthKeys { get; set; } = new();
 }
 
-public class MonitoringConfig
-{
+public class MonitoringConfig {
     public bool ContinuousMode { get; set; } = true;
 
     /// <summary>Last recorded minimum heart rate (0 = none recorded yet).</summary>
@@ -40,8 +40,7 @@ public class MonitoringConfig
     public ushort MaxHeartrate { get; set; }
 }
 
-public class OutputConfig
-{
+public class OutputConfig {
     public bool FileEnabled { get; set; }
     public bool CsvEnabled { get; set; }
     public bool OscEnabled { get; set; } = true;
@@ -52,8 +51,7 @@ public class OutputConfig
 /// TOML configuration so it works on every platform (the old WPF app stored
 /// this in the Windows registry).
 /// </summary>
-public class WindowConfig
-{
+public class WindowConfig {
     public int Left { get; set; } = -1;
     public int Top { get; set; } = -1;
     public int Width { get; set; } = 400;

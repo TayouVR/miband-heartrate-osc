@@ -3,8 +3,7 @@ namespace MiBandHR.Core.Bluetooth;
 /// <summary>
 /// Platform-neutral representation of a BLE peripheral.
 /// </summary>
-public interface IBluetoothDevice
-{
+public interface IBluetoothDevice {
     /// <summary>Platform specific identifier of the device (MAC address on Linux, GUID-ish id on Windows).</summary>
     string Id { get; }
 
@@ -29,7 +28,7 @@ public interface IBluetoothDevice
 
     /// <summary>Terminates the GATT connection.</summary>
     void Disconnect();
-    
+
     /// <summary>Raised when the BLE link drops unexpectedly (not on an explicit <see cref="Disconnect"/>).</summary>
     event EventHandler? Disconnected;
 }

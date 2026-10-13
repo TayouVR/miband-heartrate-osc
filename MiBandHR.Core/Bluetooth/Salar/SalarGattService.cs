@@ -5,12 +5,10 @@ namespace MiBandHR.Core.Bluetooth.Salar;
 /// <summary>
 /// <see cref="IGattService"/> backed by a Salar.BluetoothLE <see cref="IBleService"/>.
 /// </summary>
-public sealed class SalarGattService : IGattService
-{
+public sealed class SalarGattService : IGattService {
     private readonly IBleService _service;
 
-    public SalarGattService(IBleService service)
-    {
+    public SalarGattService(IBleService service) {
         _service = service;
     }
 
@@ -19,8 +17,7 @@ public sealed class SalarGattService : IGattService
 
     public Guid Uuid => _service.Uuid;
 
-    public async Task<IGattCharacteristic?> GetCharacteristicAsync(Guid uuid)
-    {
+    public async Task<IGattCharacteristic?> GetCharacteristicAsync(Guid uuid) {
         var characteristic = await _service.GetCharacteristicAsync(uuid);
         return characteristic == null ? null : new SalarGattCharacteristic(characteristic);
     }

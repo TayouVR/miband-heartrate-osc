@@ -26,18 +26,18 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1"
                             IsVisible="{Binding ShowConnectButtons}">
-                        <Button Content="Manual Connect" Padding="10 5" Margin="5 5 0 5"
-                                Command="{Binding CommandConnect}"
-                                IsVisible="{Binding !UseAutoConnect}" />
-                        <Button Content="Auto Connect" Padding="10 5" Margin="5 5 0 5"
-                                Command="{Binding CommandAutoConnect}"
-                                IsVisible="{Binding UseAutoConnect}" />
+                    <Button Content="Manual Connect" Padding="10 5" Margin="5 5 0 5"
+                            Command="{Binding CommandConnect}"
+                            IsVisible="{Binding !UseAutoConnect}" />
+                    <Button Content="Auto Connect" Padding="10 5" Margin="5 5 0 5"
+                            Command="{Binding CommandAutoConnect}"
+                            IsVisible="{Binding UseAutoConnect}" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1"
                             IsVisible="{Binding IsConnected}">
-                        <Button Content="Disconnect" Padding="10 5" Margin="5 5 0 5"
-                                Command="{Binding CommandDisconnect}" />
+                    <Button Content="Disconnect" Padding="10 5" Margin="5 5 0 5"
+                            Command="{Binding CommandDisconnect}" />
                 </StackPanel>
             </Grid>
 
@@ -45,16 +45,16 @@
                 <StackPanel Orientation="Vertical">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock FontSize="32" Margin="0 10" VerticalAlignment="Center"
-                                    Text="{Binding Device.Heartrate, TargetNullValue=--, FallbackValue=--}" />
+                                   Text="{Binding Device.Heartrate, TargetNullValue=--, FallbackValue=--}" />
                         <TextBlock FontSize="32" Margin="0 10" VerticalAlignment="Center">bpm</TextBlock>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock VerticalAlignment="Center">Min: </TextBlock>
                         <TextBlock VerticalAlignment="Center"
-                                    Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                                   Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
                         <TextBlock VerticalAlignment="Center"> bpm&#160;&#160;Max: </TextBlock>
                         <TextBlock VerticalAlignment="Center"
-                                    Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                                   Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
                         <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
                     </StackPanel>
                 </StackPanel>

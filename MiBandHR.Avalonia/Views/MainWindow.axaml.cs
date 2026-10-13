@@ -6,12 +6,10 @@ using MiBandHR.Core.Configuration;
 
 namespace MiBandHR.Avalonia.Views;
 
-public partial class MainWindow : Window
-{
+public partial class MainWindow : Window {
     private readonly MainViewModel _model;
 
-    public MainWindow()
-    {
+    public MainWindow() {
         InitializeComponent();
 
         _model = new MainViewModel { View = this };
@@ -23,10 +21,8 @@ public partial class MainWindow : Window
         RestoreWindowPosition();
     }
 
-    private void ScrollLogToEnd()
-    {
-        if (LogList.ItemCount > 0)
-        {
+    private void ScrollLogToEnd() {
+        if (LogList.ItemCount > 0) {
             LogList.ScrollIntoView(LogList.ItemCount - 1);
         }
     }
@@ -36,18 +32,15 @@ public partial class MainWindow : Window
     /// Falls back to the default size/centred position when the stored
     /// position is off-screen (e.g. a monitor was disconnected).
     /// </summary>
-    private void RestoreWindowPosition()
-    {
+    private void RestoreWindowPosition() {
         var config = ConfigurationManager.Instance.CurrentConfig.Window;
 
         Width = config.Width;
         Height = config.Height;
 
-        if (config.Left >= 0 && config.Top >= 0)
-        {
+        if (config.Left >= 0 && config.Top >= 0) {
             var position = new PixelPoint(config.Left, config.Top);
-            if (IsOnScreen(position))
-            {
+            if (IsOnScreen(position)) {
                 Position = position;
                 return;
             }
@@ -56,22 +49,19 @@ public partial class MainWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
     }
 
-    private bool IsOnScreen(PixelPoint position)
-    {
-        foreach (var screen in Screens.All)
-        {
+    private bool IsOnScreen(PixelPoint position) {
+        foreach (var screen in Screens.All) {
             var area = screen.WorkingArea;
             if (position.X >= area.X && position.Y >= area.Y &&
-                position.X < area.X + area.Width && position.Y < area.Y + area.Height)
-            {
+                position.X < area.X + area.Width && position.Y < area.Y + area.Height) {
                 return true;
             }
         }
+
         return false;
     }
 
-    protected override void OnClosing(WindowClosingEventArgs e)
-    {
+    protected override void OnClosing(WindowClosingEventArgs e) {
         // Gracefully disconnect the device (mirrors the WPF behaviour).
         _model.CommandDisconnect.Execute(null);
 

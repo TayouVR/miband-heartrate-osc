@@ -3,13 +3,11 @@ using MiBandHR.Avalonia.Views;
 
 namespace MiBandHR.Avalonia.ViewModels;
 
-public partial class AuthenticationKeyViewModel : ViewModelBase
-{
+public partial class AuthenticationKeyViewModel : ViewModelBase {
     private string _key = "";
     private string _errorText = "";
 
-    public AuthenticationKeyViewModel()
-    {
+    public AuthenticationKeyViewModel() {
         CommandOk = new RelayCommand(_ => Validate());
         CommandCancel = new RelayCommand(_ => View?.Close(null));
     }
@@ -17,22 +15,18 @@ public partial class AuthenticationKeyViewModel : ViewModelBase
     /// <summary>The window this view model belongs to (set by the view).</summary>
     public AuthenticationKeyWindow? View { get; set; }
 
-    public string Key
-    {
+    public string Key {
         get => _key;
-        set
-        {
+        set {
             _key = value;
             OnPropertyChanged(nameof(Key));
         }
     }
 
     /// <summary>Validation error shown under the text box (empty when valid).</summary>
-    public string ErrorText
-    {
+    public string ErrorText {
         get => _errorText;
-        set
-        {
+        set {
             _errorText = value;
             OnPropertyChanged(nameof(ErrorText));
             OnPropertyChanged(nameof(HasError));
@@ -44,10 +38,8 @@ public partial class AuthenticationKeyViewModel : ViewModelBase
     public RelayCommand CommandOk { get; }
     public RelayCommand CommandCancel { get; }
 
-    private void Validate()
-    {
-        if (!KeyRegex().IsMatch(Key))
-        {
+    private void Validate() {
+        if (!KeyRegex().IsMatch(Key)) {
             ErrorText = "Authentication key is not valid (expected 32 hexadecimal characters).";
             return;
         }

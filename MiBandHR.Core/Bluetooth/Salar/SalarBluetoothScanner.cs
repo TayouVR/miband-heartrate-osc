@@ -13,19 +13,15 @@ namespace MiBandHR.Core.Bluetooth.Salar;
 /// This is the default backend on Linux: Salar's BlueZ implementation connects
 /// to devices <b>without pairing</b>, which is what the Mi Band 3 needs.
 /// </summary>
-public sealed class SalarBluetoothScanner : IBluetoothScanner
-{
+public sealed class SalarBluetoothScanner : IBluetoothScanner {
     private static readonly TimeSpan ScanDuration = TimeSpan.FromSeconds(10);
 
     private readonly IBleAdapter _adapter;
 
     public SalarBluetoothScanner()
-        : this(new LinuxBleAdapter())
-    {
-    }
+        : this(new LinuxBleAdapter()) { }
 
-    internal SalarBluetoothScanner(IBleAdapter adapter)
-    {
+    internal SalarBluetoothScanner(IBleAdapter adapter) {
         _adapter = adapter;
         _adapter.ScanResultReceived.Subscribe(OnScanResult);
     }
@@ -34,60 +30,47 @@ public sealed class SalarBluetoothScanner : IBluetoothScanner
 
     private int _resultCount;
 
-    public async Task ScanForDevicesAsync(CancellationToken cancellationToken = default)
-    {
+    public async Task ScanForDevicesAsync(CancellationToken cancellationToken = default) {
         _resultCount = 0;
         BluetoothLog.Info("Starting scan for BLE devices...");
-        try
-        {
+        try {
             var access = await _adapter.RequestAccessAsync(cancellationToken);
             BluetoothLog.Info($"Bluetooth access: {access} (adapter state: {_adapter.AdapterState}).");
-            if (access != BlePermissionStatus.Granted)
-            {
-                BluetoothLog.Error($"Bluetooth access not granted (status: {access}, adapter state: {_adapter.AdapterState}).");
+            if (access != BlePermissionStatus.Granted) {
+                BluetoothLog.Error(
+                    $"Bluetooth access not granted (status: {access}, adapter state: {_adapter.AdapterState}).");
                 return;
             }
 
             // Stop any existing scan first to avoid org.bluez.Error.InProgress.
-            try
-            {
+            try {
                 await _adapter.StopScanAsync(cancellationToken);
-            }
-            catch
-            {
+            } catch {
                 // Ignore – no prior scan may have been running.
             }
 
-            await _adapter.StartScanAsync(new ScanConfig
-            {
+            await _adapter.StartScanAsync(new ScanConfig {
                 Duration = ScanDuration,
                 ScanMode = ScanMode.LowLatency,
                 AllowDuplicates = false
             }, cancellationToken);
 
-            try
-            {
+            try {
                 await Task.Delay(ScanDuration, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
+            } catch (OperationCanceledException) {
                 // Scan cancelled early; fall through to stop.
             }
 
             await _adapter.StopScanAsync(cancellationToken);
             BluetoothLog.Info($"Scan finished, {_resultCount} result(s) reported.");
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             BluetoothLog.Error($"Scan failed: {e.Message}");
             throw;
         }
     }
 
-    private void OnScanResult(ScanResult result)
-    {
-        if (string.IsNullOrEmpty(result.Address))
-        {
+    private void OnScanResult(ScanResult result) {
+        if (string.IsNullOrEmpty(result.Address)) {
             return;
         }
 

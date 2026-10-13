@@ -4,20 +4,18 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia.Threading;
-using MiBand_Heartrate.Extras;
 using MiBandHR.Avalonia.Views;
 using MiBandHR.Core;
 using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
+using MiBandHR.Core.Extras;
 
 namespace MiBandHR.Avalonia.ViewModels;
 
-public class MainViewModel : ViewModelBase
-{
+public class MainViewModel : ViewModelBase {
     /// <summary>Display wrapper for a selectable Bluetooth backend.</summary>
-    public sealed record BluetoothBackendOption(BluetoothBackend Value, string Label)
-    {
+    public sealed record BluetoothBackendOption(BluetoothBackend Value, string Label) {
         public override string ToString() => Label;
     }
 
@@ -25,19 +23,18 @@ public class MainViewModel : ViewModelBase
     private bool _guard;
 
     private DeviceHeartrateFileOutput? _fileOutput;
-    private DeviceHeartrateCSVOutput? _csvOutput;
+    private DeviceHeartrateCsvOutput? _csvOutput;
     private DeviceHeartrateOscOutput? _oscOutput;
 
-    public MainViewModel()
-    {
+    public MainViewModel() {
         CommandConnect = new RelayCommand(_ => OpenConnectionWindow(),
-            _ => Device == null || Device.Status == DeviceStatus.OFFLINE);
+            _ => Device == null || Device.Status == DeviceStatus.Offline);
         CommandAutoConnect = new RelayCommand(_ => StartAutoConnect(),
-            _ => Device == null || Device.Status == DeviceStatus.OFFLINE);
+            _ => Device == null || Device.Status == DeviceStatus.Offline);
         CommandDisconnect = new RelayCommand(_ => Disconnect(),
-            _ => Device != null && Device.Status != DeviceStatus.OFFLINE);
+            _ => Device != null && Device.Status != DeviceStatus.Offline);
         CommandStart = new RelayCommand(_ => StartMonitoring(),
-            _ => Device is { Status: DeviceStatus.ONLINE_AUTH, HeartrateMonitorStarted: false });
+            _ => Device is { Status: DeviceStatus.OnlineAuth, HeartrateMonitorStarted: false });
         CommandStop = new RelayCommand(_ => StopMonitoring(),
             _ => Device is { HeartrateMonitorStarted: true });
 
@@ -57,16 +54,14 @@ public class MainViewModel : ViewModelBase
     // Cap the log so a long retry loop does not grow memory unbounded.
     private const int MaxLogEntries = 500;
 
-    private void OnBluetoothLogEntry(BluetoothLogEntry entry)
-    {
+    private void OnBluetoothLogEntry(BluetoothLogEntry entry) {
         // Log events may arrive on background threads; marshal to the UI thread.
-        Dispatcher.UIThread.Post(() =>
-        {
+        Dispatcher.UIThread.Post(() => {
             LogEntries.Add(new LogEntryViewModel(entry));
-            while (LogEntries.Count > MaxLogEntries)
-            {
+            while (LogEntries.Count > MaxLogEntries) {
                 LogEntries.RemoveAt(0);
             }
+
             LogEntryAdded?.Invoke();
         });
     }
@@ -114,11 +109,9 @@ public class MainViewModel : ViewModelBase
     // Settings (persisted in the shared TOML configuration)
     // ------------------------------------------------------------------
 
-    public bool UseAutoConnect
-    {
+    public bool UseAutoConnect {
         get => ConfigurationManager.Instance.CurrentConfig.Device.UseAutoConnect;
-        set
-        {
+        set {
             ConfigurationManager.Instance.CurrentConfig.Device.UseAutoConnect = value;
             ConfigurationManager.Instance.SaveConfiguration();
             OnPropertyChanged(nameof(UseAutoConnect));
@@ -131,12 +124,11 @@ public class MainViewModel : ViewModelBase
             .Select(b => new BluetoothBackendOption(b, DisplayName(b)))
             .ToList();
 
-    public BluetoothBackendOption? SelectedBluetoothBackend
-    {
-        get => AvailableBackends.FirstOrDefault(o => o.Value == ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend)
+    public BluetoothBackendOption? SelectedBluetoothBackend {
+        get => AvailableBackends.FirstOrDefault(o =>
+                   o.Value == ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend)
                ?? AvailableBackends.First();
-        set
-        {
+        set {
             if (value == null) return;
             ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend = value.Value;
             ConfigurationManager.Instance.SaveConfiguration();
@@ -144,8 +136,7 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private static string DisplayName(BluetoothBackend backend) => backend switch
-    {
+    private static string DisplayName(BluetoothBackend backend) => backend switch {
         BluetoothBackend.Auto => "Auto",
         BluetoothBackend.Windows => "Windows (WinRT)",
         BluetoothBackend.InTheHand => "InTheHand",
@@ -154,44 +145,36 @@ public class MainViewModel : ViewModelBase
         _ => backend.ToString()
     };
 
-    public bool ContinuousMode
-    {
+    public bool ContinuousMode {
         get => ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode;
-        set
-        {
+        set {
             ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode = value;
             ConfigurationManager.Instance.SaveConfiguration();
             OnPropertyChanged(nameof(ContinuousMode));
         }
     }
 
-    public bool EnableFileOutput
-    {
+    public bool EnableFileOutput {
         get => ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled;
-        set
-        {
+        set {
             ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled = value;
             ConfigurationManager.Instance.SaveConfiguration();
             OnPropertyChanged(nameof(EnableFileOutput));
         }
     }
 
-    public bool EnableCsvOutput
-    {
+    public bool EnableCsvOutput {
         get => ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled;
-        set
-        {
+        set {
             ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled = value;
             ConfigurationManager.Instance.SaveConfiguration();
             OnPropertyChanged(nameof(EnableCsvOutput));
         }
     }
 
-    public bool EnableOscOutput
-    {
+    public bool EnableOscOutput {
         get => ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled;
-        set
-        {
+        set {
             ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled = value;
             ConfigurationManager.Instance.SaveConfiguration();
             OnPropertyChanged(nameof(EnableOscOutput));
@@ -208,35 +191,30 @@ public class MainViewModel : ViewModelBase
     public RelayCommand CommandStart { get; }
     public RelayCommand CommandStop { get; }
 
-    private async void OpenConnectionWindow()
-    {
+    private async void OpenConnectionWindow() {
         if (View == null) return;
 
         var dialog = new ConnectionWindow();
         var device = await dialog.ShowDialog<Device?>(View);
 
-        if (device != null)
-        {
+        if (device != null) {
             device.Connect();
             Device = device;
         }
     }
 
-    private void StartAutoConnect()
-    {
+    private void StartAutoConnect() {
         _autoConnectBluetooth = new BLE();
 
         var defaultDeviceVersion = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceVersion;
         var defaultDeviceName = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceName;
         var defaultDeviceAuthKey = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceAuthKey;
 
-        void OnBluetoothAdded(object? sender, IBluetoothDevice args)
-        {
+        void OnBluetoothAdded(object? sender, IBluetoothDevice args) {
             if (args.Name != defaultDeviceName) return;
 
             Device device;
-            switch (defaultDeviceVersion)
-            {
+            switch (defaultDeviceVersion) {
                 case "2":
                 case "3":
                     device = new MiBand2_3_Device(args);
@@ -249,8 +227,7 @@ public class MainViewModel : ViewModelBase
                     return;
             }
 
-            if (_autoConnectBluetooth != null)
-            {
+            if (_autoConnectBluetooth != null) {
                 _autoConnectBluetooth.DeviceFound -= OnBluetoothAdded;
             }
 
@@ -264,40 +241,33 @@ public class MainViewModel : ViewModelBase
         _ = _autoConnectBluetooth.ScanForDevicesAsync();
     }
 
-    private void Disconnect()
-    {
-        if (Device != null)
-        {
+    private void Disconnect() {
+        if (Device != null) {
             _guard = false;
             Device.Disconnect();
             Device = null;
         }
     }
 
-    private void StartMonitoring()
-    {
+    private void StartMonitoring() {
         if (Device == null) return;
 
         Device.StartHeartrateMonitor(ContinuousMode);
 
-        if (EnableFileOutput)
-        {
+        if (EnableFileOutput) {
             _fileOutput = new DeviceHeartrateFileOutput("heartrate.txt", Device);
         }
 
-        if (EnableCsvOutput)
-        {
-            _csvOutput = new DeviceHeartrateCSVOutput("heartrate.csv", Device);
+        if (EnableCsvOutput) {
+            _csvOutput = new DeviceHeartrateCsvOutput("heartrate.csv", Device);
         }
 
-        if (EnableOscOutput)
-        {
+        if (EnableOscOutput) {
             _oscOutput = new DeviceHeartrateOscOutput(Device);
         }
     }
 
-    private void StopMonitoring()
-    {
+    private void StopMonitoring() {
         Device?.StopHeartrateMonitor();
 
         _fileOutput = null;
@@ -309,72 +279,59 @@ public class MainViewModel : ViewModelBase
     // Device state handling
     // ------------------------------------------------------------------
 
-    private void UpdateStatusText()
-    {
-        if (Device != null)
-        {
-            StatusText = Device.Status switch
-            {
-                DeviceStatus.OFFLINE => "No device connected",
-                DeviceStatus.ONLINE_UNAUTH => $"Connected to {Device.Name} | Not auth",
-                DeviceStatus.ONLINE_AUTH => $"Connected to {Device.Name} | Auth",
+    private void UpdateStatusText() {
+        if (Device != null) {
+            StatusText = Device.Status switch {
+                DeviceStatus.Offline => "No device connected",
+                DeviceStatus.OnlineUnauth => $"Connected to {Device.Name} | Not auth",
+                DeviceStatus.OnlineAuth => $"Connected to {Device.Name} | Auth",
                 _ => StatusText
             };
         }
-        else
-        {
+        else {
             StatusText = "No device connected";
         }
     }
 
-    private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(Device.Status))
-        {
+    private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (e.PropertyName == nameof(Device.Status)) {
             // Device callbacks arrive on background threads; marshal to the UI thread.
             Dispatcher.UIThread.Post(DeviceUpdate);
 
-            if (Device != null)
-            {
+            if (Device != null) {
                 // Connection lost, we try to re-connect
-                if (Device.Status == DeviceStatus.OFFLINE && _guard)
-                {
+                if (Device.Status == DeviceStatus.Offline && _guard) {
                     _guard = false;
                     Device.Connect();
                 }
-                else if (Device.Status != DeviceStatus.OFFLINE)
-                {
+                else if (Device.Status != DeviceStatus.Offline) {
                     _guard = true;
                 }
 
                 // Start monitoring as soon as the handshake completes. Mi Band
                 // firmware idles out and disconnects a few seconds after auth if
                 // the host doesn't subscribe to heart rate notifications promptly.
-                if (Device.Status == DeviceStatus.ONLINE_AUTH && !Device.HeartrateMonitorStarted)
-                {
+                if (Device.Status == DeviceStatus.OnlineAuth && !Device.HeartrateMonitorStarted) {
                     Dispatcher.UIThread.Post(StartMonitoring);
                 }
             }
         }
-        else if (e.PropertyName == nameof(Device.HeartrateMonitorStarted))
-        {
+        else if (e.PropertyName == nameof(Device.HeartrateMonitorStarted)) {
             Dispatcher.UIThread.Post(RaiseCommandStates);
         }
     }
 
-    private void DeviceUpdate()
-    {
+    private void DeviceUpdate() {
         // Must be reset even when Device is null, otherwise the connect buttons
         // stay hidden (ShowConnectButtons == !IsConnected) and the UI is stuck
         // after a disconnect.
-        IsConnected = Device != null && Device.Status != DeviceStatus.OFFLINE;
+        IsConnected = Device != null && Device.Status != DeviceStatus.Offline;
 
         UpdateStatusText();
         RaiseCommandStates();
     }
 
-    private void RaiseCommandStates()
-    {
+    private void RaiseCommandStates() {
         CommandConnect.RaiseCanExecuteChanged();
         CommandAutoConnect.RaiseCanExecuteChanged();
         CommandDisconnect.RaiseCanExecuteChanged();

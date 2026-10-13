@@ -4,7 +4,7 @@ using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
 using Spectre.Console;
 using System.Collections.Concurrent;
-using MiBand_Heartrate.Extras;
+using MiBandHR.Core.Extras;
 
 namespace MiBandHR.Cli;
 
@@ -46,13 +46,14 @@ public class App {
             .StartAsync(async ctx => {
                 while (selectedBluetoothDevice == null) {
                     ctx.UpdateTarget(CreateDeviceTable());
-                    
+
                     if (Console.KeyAvailable) {
-                         var key = Console.ReadKey(true);
-                         if (key.Key == ConsoleKey.Enter && _discoveredDevices.Count > 0) {
-                             break;
-                         }
+                        var key = Console.ReadKey(true);
+                        if (key.Key == ConsoleKey.Enter && _discoveredDevices.Count > 0) {
+                            break;
+                        }
                     }
+
                     await Task.Delay(500);
                 }
             });
@@ -76,18 +77,18 @@ public class App {
         var modelChoice = AnsiConsole.Prompt(
             new SelectionPrompt<DeviceModel>()
                 .Title("Select [green]Device Model[/]:")
-                .AddChoices(DeviceModel.MIBAND_2_3, DeviceModel.MIBAND_4, DeviceModel.DUMMY)
+                .AddChoices(DeviceModel.Miband2_3, DeviceModel.Miband4_5, DeviceModel.Dummy)
         );
 
         switch (modelChoice) {
-            case DeviceModel.MIBAND_2_3:
+            case DeviceModel.Miband2_3:
                 _device = new MiBand2_3_Device(selectedBluetoothDevice);
                 break;
-            case DeviceModel.MIBAND_4:
+            case DeviceModel.Miband4_5:
                 var authKey = AnsiConsole.Ask<string>("Enter [green]Authentication Key[/] (32 hex chars):");
                 _device = new MiBand4_Device(selectedBluetoothDevice, authKey);
                 break;
-            case DeviceModel.DUMMY:
+            case DeviceModel.Dummy:
                 _device = new Dummy_Device();
                 break;
         }
@@ -98,11 +99,11 @@ public class App {
         _device.Connect();
 
         // Wait for auth
-        while (_device.Status != DeviceStatus.ONLINE_AUTH && _device.Status != DeviceStatus.OFFLINE) {
+        while (_device.Status != DeviceStatus.OnlineAuth && _device.Status != DeviceStatus.Offline) {
             await Task.Delay(100);
         }
 
-        if (_device.Status == DeviceStatus.OFFLINE) {
+        if (_device.Status == DeviceStatus.Offline) {
             AnsiConsole.MarkupLine("[red]Failed to connect or authenticate.[/]");
             return;
         }
@@ -114,13 +115,13 @@ public class App {
 
         // Setup outputs as in WPF version
         DeviceHeartrateFileOutput? fileOutput = null;
-        DeviceHeartrateCSVOutput? csvOutput = null;
+        DeviceHeartrateCsvOutput? csvOutput = null;
         DeviceHeartrateOscOutput? oscOutput = null;
 
         if (ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled)
             fileOutput = new DeviceHeartrateFileOutput("heartrate.txt", _device);
         if (ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled)
-            csvOutput = new DeviceHeartrateCSVOutput("heartrate.csv", _device);
+            csvOutput = new DeviceHeartrateCsvOutput("heartrate.csv", _device);
         if (ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled)
             oscOutput = new DeviceHeartrateOscOutput(_device);
 
@@ -155,7 +156,7 @@ public class App {
         var hr = _device?.Heartrate ?? 0;
         var min = _device?.MinHeartrate ?? 0;
         var max = _device?.MaxHeartrate ?? 0;
-        
+
         var content = new Rows(
             new Markup($"[bold red]Current Heart Rate:[/] [white]{hr}[/] BPM"),
             new Markup($"[blue]Min:[/] {min} [blue]Max:[/] {max}")

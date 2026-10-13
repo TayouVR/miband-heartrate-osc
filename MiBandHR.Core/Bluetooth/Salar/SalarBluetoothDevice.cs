@@ -18,13 +18,9 @@ namespace MiBandHR.Core.Bluetooth.Salar;
 /// the address is known, from the scan result) and resolves the real
 /// <see cref="IBleDevice"/> on the first <see cref="ConnectAsync"/> call.
 /// </summary>
-public sealed class SalarBluetoothDevice : IBluetoothDevice
-{
+public sealed class SalarBluetoothDevice(IBleAdapter adapter, string address, string name) : IBluetoothDevice {
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
-    private readonly IBleAdapter _adapter;
-    private readonly string _address;
-    private readonly string _name;
     private IBleDevice? _device;
 
     // TODO: implement disconnect detection and raise Disconnected for this backend.
@@ -32,81 +28,60 @@ public sealed class SalarBluetoothDevice : IBluetoothDevice
     public event EventHandler? Disconnected;
 #pragma warning restore CS0067
 
-    public SalarBluetoothDevice(IBleAdapter adapter, string address, string name)
-    {
-        _adapter = adapter;
-        _address = address;
-        _name = name;
-    }
+    public string Id => address;
 
-    public string Id => _address;
-
-    public string Name => _device?.Name ?? _name;
+    public string Name => _device?.Name ?? name;
 
     public bool IsConnected => _device?.State == BleDeviceState.Connected;
 
-    public async Task ConnectAsync()
-    {
-        if (IsConnected)
-        {
+    public async Task ConnectAsync() {
+        if (IsConnected) {
             return;
         }
 
-        BluetoothLog.Info($"Connecting to {Name} ({_address})...");
-        try
-        {
-            _device = await _adapter.ConnectAsync(_address, new ConnectionConfig
-            {
+        BluetoothLog.Info($"Connecting to {Name} ({address})...");
+        try {
+            _device = await adapter.ConnectAsync(address, new ConnectionConfig {
                 AutoConnect = false,
                 ConnectionTimeout = ConnectTimeout
             });
             BluetoothLog.Success($"Connected to {Name}.");
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
             throw;
         }
     }
 
-    public async Task<IGattService?> GetPrimaryServiceAsync(Guid uuid)
-    {
+    public async Task<IGattService?> GetPrimaryServiceAsync(Guid uuid) {
         await ConnectAsync();
 
         var service = await _device!.GetServiceAsync(uuid);
         return service == null ? null : new SalarGattService(service);
     }
 
-    public async Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync()
-    {
+    public async Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync() {
         await ConnectAsync();
 
         var services = await _device!.GetServicesAsync();
         var result = new List<IGattService>();
-        foreach (var service in services)
-        {
+        foreach (var service in services) {
             result.Add(new SalarGattService(service));
         }
+
         return result;
     }
 
-    public void Disconnect()
-    {
+    public void Disconnect() {
         var device = _device;
-        if (device == null)
-        {
+        if (device == null) {
             return;
         }
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
+        _ = Task.Run(async () => {
+            try {
                 await device.DisconnectAsync();
                 device.Dispose();
-            }
-            catch
-            {
+            } catch {
                 // Disconnect is best-effort; the link may already be down.
             }
         });

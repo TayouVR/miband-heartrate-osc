@@ -5,8 +5,7 @@ namespace MiBandHR.Core.Bluetooth;
 /// Implementations wrap the platform specific BLE stack
 /// (e.g. InTheHand.BluetoothLE, Plugin.BLE, Windows.Devices.Bluetooth, ...).
 /// </summary>
-public interface IGattCharacteristic
-{
+public interface IGattCharacteristic {
     /// <summary>The 128-bit UUID of this characteristic.</summary>
     Guid Uuid { get; }
 
@@ -43,10 +42,8 @@ public interface IGattCharacteristic
 /// <summary>
 /// Arguments for the <see cref="IGattCharacteristic.CharacteristicValueChanged"/> event.
 /// </summary>
-public sealed class GattCharacteristicValueChangedEventArgs : EventArgs
-{
-    public GattCharacteristicValueChangedEventArgs(byte[] value)
-    {
+public sealed class GattCharacteristicValueChangedEventArgs : EventArgs {
+    public GattCharacteristicValueChangedEventArgs(byte[] value) {
         Value = value;
     }
 

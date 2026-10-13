@@ -1,19 +1,14 @@
-using System;
 using System.ComponentModel;
-using System.IO;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
 
-namespace MiBand_Heartrate.Extras
-{
-    public class DeviceHeartrateCSVOutput
-    {
-        Device _device;
+namespace MiBandHR.Core.Extras {
+    public class DeviceHeartrateCsvOutput {
+        private readonly Device _device;
 
-        string _filename;
+        private readonly string _filename;
 
-        public DeviceHeartrateCSVOutput(string filename, Device device)
-        {
+        public DeviceHeartrateCsvOutput(string filename, Device device) {
             _filename = filename;
 
             _device = device;
@@ -21,32 +16,22 @@ namespace MiBand_Heartrate.Extras
             _device.PropertyChanged += OnDeviceChanged;
         }
 
-        ~DeviceHeartrateCSVOutput()
-        {
+        ~DeviceHeartrateCsvOutput() {
             _device.PropertyChanged -= OnDeviceChanged;
         }
 
-        private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == "Heartrate" && ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled)
-            {
-                try
-                {
-                    if (!File.Exists(_filename))
-                    {
-                        using (StreamWriter f = new StreamWriter(_filename))
-                        {
-                            f.WriteLine("At,Heartrate");
-                        }
+        private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e) {
+            if (e.PropertyName == "Heartrate" && ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled) {
+                try {
+                    if (!File.Exists(_filename)) {
+                        using var f = new StreamWriter(_filename);
+                        f.WriteLine("At,Heartrate");
                     }
 
-                    using (StreamWriter f = new StreamWriter(_filename, true))
-                    {
+                    using (var f = new StreamWriter(_filename, true)) {
                         f.WriteLine($"{DateTime.Now},{_device.Heartrate}");
                     }
-                }
-                catch (Exception err)
-                {
+                } catch (Exception err) {
                     Console.WriteLine(err.ToString());
                 }
             }

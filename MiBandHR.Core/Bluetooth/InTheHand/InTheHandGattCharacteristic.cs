@@ -9,12 +9,10 @@ namespace MiBandHR.Core.Bluetooth.InTheHand;
 /// Used on non-Linux platforms; Linux uses the native BlueZ backend
 /// (<c>BlueZGattCharacteristic</c>).
 /// </summary>
-public sealed class InTheHandGattCharacteristic : IGattCharacteristic
-{
+public sealed class InTheHandGattCharacteristic : IGattCharacteristic {
     private readonly GattCharacteristic _characteristic;
 
-    public InTheHandGattCharacteristic(GattCharacteristic characteristic)
-    {
+    public InTheHandGattCharacteristic(GattCharacteristic characteristic) {
         _characteristic = characteristic;
     }
 
@@ -23,14 +21,12 @@ public sealed class InTheHandGattCharacteristic : IGattCharacteristic
     public event EventHandler<GattCharacteristicValueChangedEventArgs>? CharacteristicValueChanged;
 
     /// <summary>Wires up the local value-changed event handler.</summary>
-    public void SubscribeToValueChanges()
-    {
+    public void SubscribeToValueChanges() {
         _characteristic.CharacteristicValueChanged += OnInTheHandValueChanged;
     }
 
     private void OnInTheHandValueChanged(object? sender,
-        global::InTheHand.Bluetooth.GattCharacteristicValueChangedEventArgs args)
-    {
+        global::InTheHand.Bluetooth.GattCharacteristicValueChangedEventArgs args) {
         if (args.Value is not { } value) return;
         CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
     }

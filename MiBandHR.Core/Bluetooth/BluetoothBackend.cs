@@ -13,8 +13,7 @@ namespace MiBandHR.Core.Bluetooth;
 ///   <item><description><see cref="Salar"/> – Salar.BluetoothLE, Linux only.</description></item>
 /// </list>
 /// </summary>
-public enum BluetoothBackend
-{
+public enum BluetoothBackend {
     Auto,
     Windows,
     InTheHand,

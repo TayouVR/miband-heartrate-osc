@@ -4,8 +4,7 @@ namespace MiBandHR.Core.Bluetooth;
 /// Scans for nearby BLE peripherals and raises <see cref="DeviceFound"/>
 /// for every discovered device.
 /// </summary>
-public interface IBluetoothScanner
-{
+public interface IBluetoothScanner {
     event EventHandler<IBluetoothDevice>? DeviceFound;
 
     /// <summary>

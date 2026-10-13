@@ -2,8 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using MiBandHR.Core.Bluetooth;
 
-namespace MiBandHR.Core.Devices
-{
+namespace MiBandHR.Core.Devices {
     /// <summary>
     /// Mi Band 4 and Mi Band 5.
     ///
@@ -18,12 +17,10 @@ namespace MiBandHR.Core.Devices
     /// <c>0x03 0x00 + AES_ECB(key, challenge)</c>.
     /// See docs/AUTHENTICATION.md for the full protocol description.
     /// </summary>
-    public class MiBand4_Device : MiBandDeviceBase
-    {
+    public class MiBand4_Device : MiBandDeviceBase {
         private readonly byte[] _key;
 
-        public MiBand4_Device(IBluetoothDevice device, string key) : base(device, DeviceModel.MIBAND_4)
-        {
+        public MiBand4_Device(IBluetoothDevice device, string key) : base(device, DeviceModel.Miband4_5) {
             _key = EncodeKey(key);
         }
 
@@ -52,15 +49,14 @@ namespace MiBandHR.Core.Devices
         /// produced by freemyband.com / huami-token) or as arbitrary text,
         /// in which case the first 16 bytes of its SHA-256 hash are used.
         /// </summary>
-        private static byte[] EncodeKey(string key)
-        {
-            if (key.Length == 32)
-            {
+        private static byte[] EncodeKey(string key) {
+            if (key.Length == 32) {
                 return Enumerable.Range(0, key.Length)
                     .Where(x => x % 2 == 0)
                     .Select(x => Convert.ToByte(key.Substring(x, 2), 16))
                     .ToArray();
             }
+
             return SHA256.HashData(Encoding.UTF8.GetBytes(key)).Take(16).ToArray();
         }
     }

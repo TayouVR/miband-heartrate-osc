@@ -1,34 +1,31 @@
 using System.ComponentModel;
 using MiBandHR.Core.Configuration;
 
-namespace MiBandHR.Core.Devices
-{
-    public enum DeviceStatus { OFFLINE, ONLINE_UNAUTH, ONLINE_AUTH }
-
-    public enum DeviceModel {
-        [Description("Hidden")]
-        DUMMY,
-
-        [Description("Mi Band 2/3")]
-        MIBAND_2_3,
-
-        [Description("Mi Band 4/5")]
-        MIBAND_4
+namespace MiBandHR.Core.Devices {
+    public enum DeviceStatus {
+        Offline,
+        OnlineUnauth,
+        OnlineAuth
     }
 
-    public abstract class Device : INotifyPropertyChanged
-    {
+    public enum DeviceModel {
+        [Description("Hidden")] Dummy,
+
+        // ReSharper disable once InconsistentNaming
+        [Description("Mi Band 2/3")] Miband2_3,
+
+        // ReSharper disable once InconsistentNaming
+        [Description("Mi Band 4/5")] Miband4_5
+    }
+
+    public abstract class Device : INotifyPropertyChanged {
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected Device()
-        {
-            try
-            {
+        protected Device() {
+            try {
                 _minHeartrate = ConfigurationManager.Instance.CurrentConfig.Monitoring.MinHeartrate;
                 _maxHeartrate = ConfigurationManager.Instance.CurrentConfig.Monitoring.MaxHeartrate;
-            }
-            catch (InvalidOperationException)
-            {
+            } catch (InvalidOperationException) {
                 // Configuration not initialized (e.g. design-time data).
             }
         }
@@ -38,7 +35,7 @@ namespace MiBandHR.Core.Devices
             get;
             protected init {
                 field = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Name"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
             }
         } = "";
 
@@ -46,23 +43,21 @@ namespace MiBandHR.Core.Devices
             get;
             internal set {
                 field = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Status"));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
             }
-        } = Devices.DeviceStatus.OFFLINE;
+        } = DeviceStatus.Offline;
 
 
         public DeviceModel Model { get; internal set; }
 
 
-        ushort _heartrate;
-
         public ushort Heartrate {
-            get => _heartrate;
+            get;
             internal set {
-                _heartrate = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Heartrate"));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("MinHeartrate"));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("MaxHeartrate"));
+                field = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Heartrate)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MinHeartrate)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MaxHeartrate)));
             }
         }
 
@@ -70,11 +65,12 @@ namespace MiBandHR.Core.Devices
         ushort _minHeartrate;
 
         public ushort? MinHeartrate {
-            get { 
-                if (_heartrate != 0 && (_minHeartrate == 0 || _heartrate < _minHeartrate)) {
-                    _minHeartrate = _heartrate;
+            get {
+                if (Heartrate != 0 && (_minHeartrate == 0 || Heartrate < _minHeartrate)) {
+                    _minHeartrate = Heartrate;
                     SaveMinMaxHeartrate();
                 }
+
                 return _minHeartrate == 0 ? (ushort?)null : _minHeartrate;
             }
         }
@@ -83,26 +79,25 @@ namespace MiBandHR.Core.Devices
         ushort _maxHeartrate;
 
         public ushort? MaxHeartrate {
-            get { 
-                if (_heartrate > _maxHeartrate) {
-                    _maxHeartrate = _heartrate;
+            get {
+                if (Heartrate > _maxHeartrate) {
+                    _maxHeartrate = Heartrate;
                     SaveMinMaxHeartrate();
                 }
+
                 return _maxHeartrate == 0 ? (ushort?)null : _maxHeartrate;
             }
         }
 
-        private void SaveMinMaxHeartrate()
-        {
-            try
-            {
+        private void SaveMinMaxHeartrate() {
+            try {
+                if (MinHeartrate == null || MaxHeartrate == null) return;
+
                 var monitoring = ConfigurationManager.Instance.CurrentConfig.Monitoring;
-                monitoring.MinHeartrate = _minHeartrate;
-                monitoring.MaxHeartrate = _maxHeartrate;
+                monitoring.MinHeartrate = MinHeartrate ?? 0; // guarded above
+                monitoring.MaxHeartrate = MaxHeartrate ?? 0; // guarded above
                 ConfigurationManager.Instance.SaveConfiguration();
-            }
-            catch (InvalidOperationException)
-            {
+            } catch (InvalidOperationException) {
                 // Configuration not initialized.
             }
         }
@@ -116,7 +111,7 @@ namespace MiBandHR.Core.Devices
             }
         }
 
-        public string DeviceId { get; internal set; } = "";
+        protected string DeviceId { get; init; } = "";
 
         // --------------------------------------
 

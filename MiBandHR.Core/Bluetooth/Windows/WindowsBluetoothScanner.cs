@@ -1,5 +1,4 @@
 #if WINDOWS
-
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Enumeration;
 

@@ -1,30 +1,29 @@
 using System.ComponentModel;
 using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
 using OscCore;
 
-namespace MiBand_Heartrate.Extras; 
+namespace MiBandHR.Core.Extras;
 
 public class DeviceHeartrateOscOutput {
-    Device _device;
+    private readonly Device _device;
 
-    private UdpClient _udpClient;
-    private Socket _socket;
+    private readonly UdpClient _udpClient;
+    private readonly Socket _socket;
 
     private CancellationTokenSource? _cancellationTokenSource;
 
     private static class Addresses {
         private const string ParametersAddress = "/avatar/parameters";
-            
+
         private const string ApplicationPrefix = "HR";
 
         /// <summary>
         /// Heart rate par min [0, 255]
         /// </summary>
         public const string HeartRateInt = $"{ParametersAddress}/HeartRateInt";
+
         public const string HeartRate3 = $"{ParametersAddress}/HeartRate3";
         public const string HRInt = $"{ParametersAddress}/{ApplicationPrefix}/Int";
 
@@ -32,6 +31,7 @@ public class DeviceHeartrateOscOutput {
         /// Normalized Heart rate ([0, 255] -> [-1, 1])
         /// </summary>
         public const string HeartRateFloat = $"{ParametersAddress}/HeartRateFloat";
+
         public const string HeartRate = $"{ParametersAddress}/HeartRate";
         public const string HeartRateFloatHR = $"{ParametersAddress}/floatHR";
         public const string HRFloat = $"{ParametersAddress}/{ApplicationPrefix}/Float";
@@ -40,6 +40,7 @@ public class DeviceHeartrateOscOutput {
         /// Normalized Heart rate ([0, 255] -> [0, 1])
         /// </summary>
         public const string HeartRateFloat01 = $"{ParametersAddress}/HeartRateFloat01";
+
         public const string HeartRate2 = $"{ParametersAddress}/HeartRate2";
         public const string HRFloatHalf = $"{ParametersAddress}/{ApplicationPrefix}/HalfFloat";
 
@@ -54,24 +55,28 @@ public class DeviceHeartrateOscOutput {
         /// False : Other times
         /// </summary>
         public const string HeartBeatPulse = $"{ParametersAddress}/HeartBeatPulse";
+
         public const string HRBeat = $"{ParametersAddress}/{ApplicationPrefix}/Beat";
 
         /// <summary>
         /// Reverses with each heartbeat
         /// </summary>
         public const string HeartBeatToggle = $"{ParametersAddress}/HeartBeatToggle";
+
         public const string HRBeatToggle = $"{ParametersAddress}/{ApplicationPrefix}/BeatToggle";
 
         /// <summary>
         /// Is Device connected and sending data
         /// </summary>
         public const string DeviceConnected = $"{ParametersAddress}/isHRConnected";
+
         public const string HRConnected = $"{ParametersAddress}/{ApplicationPrefix}/Connected";
 
         /// <summary>
         /// Min and Max Heartrate in session
         /// </summary>
         public const string MinHeartRate = $"{ParametersAddress}/{ApplicationPrefix}/Min";
+
         public const string MaxHeartRate = $"{ParametersAddress}/{ApplicationPrefix}/Max";
     }
 
@@ -86,7 +91,7 @@ public class DeviceHeartrateOscOutput {
 
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         _socket.Connect("localhost", 9000);
-            
+
         _device = device;
 
         _device.PropertyChanged += OnDeviceChanged;
@@ -106,21 +111,23 @@ public class DeviceHeartrateOscOutput {
 
     private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e) {
         var device = sender as Device;
-        if(device == null) return;
-            
+        if (device == null) return;
+
         switch (e.PropertyName) {
             case "HeartrateMonitorStarted":
                 if (device.HeartrateMonitorStarted) {
                     OnHeartrateMonitorStarted();
-                } else {
+                }
+                else {
                     OnHeartrateMonitorStopped();
                 }
+
                 break;
             case "Heartrate":
                 OnChangeHeartrate();
                 break;
         }
-            
+
         // this might send a bit often, should check if thats an issue
         SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
     }
@@ -133,21 +140,21 @@ public class DeviceHeartrateOscOutput {
         var maxHeartRate = (int)(_device.MaxHeartrate ?? 0);
 
         SendOSCMessages([
-            Addresses.HeartRateInt, 
-            Addresses.HeartRate3, 
+            Addresses.HeartRateInt,
+            Addresses.HeartRate3,
             Addresses.HRInt
         ], heartRateInt);
 
         SendOSCMessages([
-            Addresses.HeartRateFloat, 
-            Addresses.HeartRate, 
-            Addresses.HeartRateFloatHR, 
+            Addresses.HeartRateFloat,
+            Addresses.HeartRate,
+            Addresses.HeartRateFloatHR,
             Addresses.HRFloat
         ], heartRateFloat);
 
         SendOSCMessages([
-            Addresses.HeartRateFloat01, 
-            Addresses.HeartRate2, 
+            Addresses.HeartRateFloat01,
+            Addresses.HeartRate2,
             Addresses.HRFloatHalf
         ], heartRateFloat01);
 
@@ -163,7 +170,7 @@ public class DeviceHeartrateOscOutput {
     private void OnHeartrateMonitorStarted() {
         _hrConnected = true;
         SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
-            
+
         _cancellationTokenSource = new CancellationTokenSource();
         var _ = SendLoop(_cancellationTokenSource.Token);
     }
@@ -171,7 +178,7 @@ public class DeviceHeartrateOscOutput {
     private void OnHeartrateMonitorStopped() {
         _hrConnected = false;
         SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
-            
+
         Cancel();
     }
 
@@ -181,10 +188,11 @@ public class DeviceHeartrateOscOutput {
                 await Task.Delay(100, cancellationToken);
                 continue;
             }
+
             var span = (int)(60.0f / _device.Heartrate * 1000);
             await Task.Delay(span, cancellationToken);
             var _ = Send(span, cancellationToken);
-                
+
             if (cancellationToken.IsCancellationRequested) {
                 break;
             }
@@ -195,13 +203,13 @@ public class DeviceHeartrateOscOutput {
         SendOSCMessages([Addresses.HeartBeatInt], 1);
         SendOSCMessages([Addresses.HeartBeatPulse, Addresses.HRBeat], true);
         SendOSCMessages([Addresses.HeartBeatToggle, Addresses.HRBeatToggle], _currentBeatToggle);
-            
+
         // Wait for QRS interval
         await Task.Delay(span / 5, cancellationToken);
 
         SendOSCMessages([Addresses.HeartBeatInt], 0);
         SendOSCMessages([Addresses.HeartBeatPulse, Addresses.HRBeat], false);
-            
+
         _currentBeatToggle = !_currentBeatToggle;
     }
 
@@ -210,12 +218,10 @@ public class DeviceHeartrateOscOutput {
         foreach (var address in addresses) {
             try {
                 _socket.Send(new OscMessage(address, args).ToByteArray());
-            }
-            catch (SocketException) {
+            } catch (SocketException) {
                 // The OSC receiver (e.g. VRChat) is not listening. UDP is
                 // best-effort, so drop the packet rather than crashing the app.
-            }
-            catch (ObjectDisposedException) {
+            } catch (ObjectDisposedException) {
                 // Socket already closed during shutdown.
             }
         }

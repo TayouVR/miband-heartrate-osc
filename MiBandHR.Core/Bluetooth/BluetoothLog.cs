@@ -3,8 +3,7 @@ namespace MiBandHR.Core.Bluetooth;
 /// <summary>
 /// Severity of a <see cref="BluetoothLogEntry"/>.
 /// </summary>
-public enum BluetoothLogLevel
-{
+public enum BluetoothLogLevel {
     Info,
     Retry,
     Success,
@@ -14,10 +13,8 @@ public enum BluetoothLogLevel
 /// <summary>
 /// A single log line emitted by the Bluetooth layer.
 /// </summary>
-public sealed class BluetoothLogEntry
-{
-    public BluetoothLogEntry(DateTime timestamp, BluetoothLogLevel level, string message)
-    {
+public sealed class BluetoothLogEntry {
+    public BluetoothLogEntry(DateTime timestamp, BluetoothLogLevel level, string message) {
         Timestamp = timestamp;
         Level = level;
         Message = message;
@@ -36,8 +33,7 @@ public sealed class BluetoothLogEntry
 /// <see cref="EntryLogged"/> and display them. This deliberately avoids any
 /// dependency on a concrete logging framework or UI toolkit.
 /// </summary>
-public static class BluetoothLog
-{
+public static class BluetoothLog {
     /// <summary>Raised for every emitted log entry (may be on a background thread).</summary>
     public static event Action<BluetoothLogEntry>? EntryLogged;
 
@@ -50,8 +46,7 @@ public static class BluetoothLog
 
     public static void Error(string message) => Emit(BluetoothLogLevel.Error, message);
 
-    private static void Emit(BluetoothLogLevel level, string message)
-    {
+    private static void Emit(BluetoothLogLevel level, string message) {
         var entry = new BluetoothLogEntry(DateTime.Now, level, message);
         EntryLogged?.Invoke(entry);
         // Also mirror to the console so CLI users see it too.
