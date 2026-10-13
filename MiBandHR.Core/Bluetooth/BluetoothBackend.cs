@@ -9,6 +9,7 @@ namespace MiBandHR.Core.Bluetooth;
 ///   <item><description><see cref="Windows"/> – original
 ///   <c>Windows.Devices.Bluetooth</c> (WinRT) implementation, Windows only.</description></item>
 ///   <item><description><see cref="InTheHand"/> – InTheHand.BluetoothLE, all platforms.</description></item>
+///   <item><description><see cref="BlueZ"/> – native BlueZ via Linux.Bluetooth, Linux only.</description></item>
 ///   <item><description><see cref="Salar"/> – Salar.BluetoothLE, Linux only.</description></item>
 /// </list>
 /// </summary>
@@ -17,5 +18,6 @@ public enum BluetoothBackend
     Auto,
     Windows,
     InTheHand,
-    Salar
+    Salar,
+    BlueZ
 }

@@ -4,11 +4,7 @@ namespace MiBandHR.Core.Bluetooth.InTheHand;
 
 /// <summary>
 /// <see cref="IBluetoothScanner"/> implementation backed by InTheHand.BluetoothLE.
-/// Works on Windows, Linux (BlueZ) and macOS.
-///
-/// On Linux the discovered devices are wrapped in
-/// <see cref="BlueZBluetoothDevice"/> (which connects without pairing);
-/// elsewhere they use <see cref="InTheHandBluetoothDevice"/>.
+/// Used on non-Linux platforms; Linux uses the native BlueZ backend.
 /// </summary>
 public sealed class InTheHandBluetoothScanner : IBluetoothScanner
 {
@@ -28,7 +24,7 @@ public sealed class InTheHandBluetoothScanner : IBluetoothScanner
                 {
                     break;
                 }
-                DeviceFound?.Invoke(this, WrapDevice(device));
+                DeviceFound?.Invoke(this, new InTheHandBluetoothDevice(device));
             }
         }
         catch (Exception e)
@@ -36,12 +32,5 @@ public sealed class InTheHandBluetoothScanner : IBluetoothScanner
             BluetoothLog.Error($"Scan failed: {e.Message}");
             throw;
         }
-    }
-
-    internal static IBluetoothDevice WrapDevice(BluetoothDevice device)
-    {
-        return OperatingSystem.IsLinux()
-            ? new BlueZBluetoothDevice(device)
-            : new InTheHandBluetoothDevice(device);
     }
 }

@@ -1,11 +1,12 @@
+#if !WINDOWS
 using Linux.Bluetooth;
 using Tmds.DBus;
 
-namespace MiBandHR.Core.Bluetooth.InTheHand;
+namespace MiBandHR.Core.Bluetooth.BlueZ;
 
 /// <summary>
 /// Linux (BlueZ) <see cref="IGattCharacteristic"/> backed by a native
-/// <c>IGattCharacteristic1</c> D-Bus proxy. Notifications use the correct
+/// <c>GattCharacteristic</c> D-Bus proxy. Notifications use the correct
 /// subscribe-then-start ordering and tolerate the transient BlueZ
 /// <c>InProgress</c> race (handled by <see cref="LinuxBlueZInterop"/>).
 /// </summary>
@@ -32,10 +33,6 @@ public sealed class BlueZGattCharacteristic(GattCharacteristic nativeCharacteris
         _propertyWatcher ??= await nativeCharacteristic.WatchPropertiesAsync(RaiseValueChanged);
         await LinuxBlueZInterop.StartNotifyWithRetryAsync(nativeCharacteristic);
 
-        var flags = await nativeCharacteristic.GetFlagsAsync();
-        var notifying = await nativeCharacteristic.GetNotifyingAsync();
-        //BluetoothLog.Info($"Notifications enabled on {Uuid} (flags: {flags}, notifying: {notifying}).");
-
         // Work around a BlueZ quirk where some peripherals don't start notifying
         // after StartNotify alone (e.g. the Mi Band HR characteristic).
         await BlueZNativeInterop.PrimeNotificationsAsync(nativeCharacteristic);
@@ -57,3 +54,4 @@ public sealed class BlueZGattCharacteristic(GattCharacteristic nativeCharacteris
         }
     }
 }
+#endif

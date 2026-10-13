@@ -149,6 +149,7 @@ public class MainViewModel : ViewModelBase
         BluetoothBackend.Auto => "Auto",
         BluetoothBackend.Windows => "Windows (WinRT)",
         BluetoothBackend.InTheHand => "InTheHand",
+        BluetoothBackend.BlueZ => "BlueZ (Linux)",
         BluetoothBackend.Salar => "Salar (Linux)",
         _ => backend.ToString()
     };

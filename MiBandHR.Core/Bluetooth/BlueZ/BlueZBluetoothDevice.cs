@@ -1,40 +1,38 @@
-using InTheHand.Bluetooth;
+#if !WINDOWS
 using Linux.Bluetooth;
 using Linux.Bluetooth.Extensions;
+using Tmds.DBus;
 
-namespace MiBandHR.Core.Bluetooth.InTheHand;
+namespace MiBandHR.Core.Bluetooth.BlueZ;
 
 /// <summary>
-/// Linux (BlueZ) specific <see cref="IBluetoothDevice"/> that wraps an
-/// InTheHand <see cref="BluetoothDevice"/> but drives the connection and GATT
-/// operations through the native BlueZ <c>Device</c> D-Bus proxy directly.
+/// Linux (BlueZ) specific <see cref="IBluetoothDevice"/> backed directly by a
+/// <see cref="Linux.Bluetooth.Device"/> D-Bus proxy.
 ///
-/// Unlike InTheHand's own Linux connect path, this implementation
-/// <b>does not pair</b> the device before connecting. Pairing is neither
-/// required nor desired for Mi Band heart rate monitoring, and forcing it
-/// (as InTheHand does) can leave the connection unsettled — the root cause of
-/// the <c>org.bluez.Error.NotConnected</c> failures seen with Mi Band 3.
-/// It mirrors the connect behaviour of Salar.BluetoothLE's Linux backend
-/// (connect → wait for Connected → wait for ServicesResolved), reimplemented
-/// against the MIT-licensed <c>Linux.Bluetooth</c> library.
+/// Connects <b>without pairing</b>: the Mi Band authentication is done at the
+/// application layer (AES challenge/response), so forcing BlueZ to pair would
+/// only trigger an extra "confirm pairing" prompt on the band without adding
+/// anything. The native device is obtained directly from BlueZ (no InTheHand
+/// involvement on Linux).
 /// </summary>
 public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
-    private readonly BluetoothDevice _inTheHandDevice;
-    private Device? _nativeDevice; // Linux.Bluetooth.Device
+    private readonly Device _device;
     private bool _isConnected;
 
     public event EventHandler? Disconnected;
     private IDisposable? _connectedWatcher;
 
-    public BlueZBluetoothDevice(BluetoothDevice device) {
-        _inTheHandDevice = device;
+    public BlueZBluetoothDevice(Device device, string id, string name) {
+        _device = device;
+        Id = id;
+        Name = name;
     }
 
-    public string Id => _inTheHandDevice.Id;
+    public string Id { get; }
 
-    public string Name => _inTheHandDevice.Name;
+    public string Name { get; }
 
     /// <summary>
     /// True while a connection is believed to be established.
@@ -43,7 +41,7 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     /// is a synchronous property that may be polled from the UI thread, and a
     /// blocking <c>GetAllAsync</c> D-Bus round-trip there would freeze the UI.
     /// The flag is set after <see cref="ConnectAsync"/> succeeds and cleared by
-    /// <see cref="Disconnect"/>.
+    /// <see cref="Disconnect"/> or the D-Bus <c>Connected</c> watcher.
     /// </summary>
     public bool IsConnected => _isConnected;
 
@@ -52,25 +50,22 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     /// BlueZ to report the device connected and its GATT services resolved.
     /// </summary>
     public async Task ConnectAsync() {
-        var device = await GetNativeDevice();
-
-        if (await BlueZNativeInterop.GetConnectedAsync(device)) {
+        if (await BlueZNativeInterop.GetConnectedAsync(_device)) {
             _isConnected = true;
             return;
         }
 
         BluetoothLog.Info($"Connecting to {Name} ({Id})...");
         try {
-            await BlueZNativeInterop.ConnectNoPairingAsync(device, ConnectTimeout);
+            await BlueZNativeInterop.ConnectNoPairingAsync(_device, ConnectTimeout);
             _isConnected = true;
-            _connectedWatcher ??= await device.WatchPropertiesAsync(value => {
+            _connectedWatcher ??= await _device.WatchPropertiesAsync(value => {
                 if (!value.Changed.Any(x => x.Key == "Connected" && x.Value is bool connected && !connected)) return;
                 _isConnected = false;
                 Disconnected?.Invoke(this, EventArgs.Empty);
             });
             BluetoothLog.Success($"Connected to {Name}.");
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             _isConnected = false;
             BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
             throw;
@@ -80,14 +75,14 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     public async Task<IGattService?> GetPrimaryServiceAsync(Guid uuid) {
         await ConnectAsync();
 
-        var service = await (await GetNativeDevice()).GetServiceAsync(uuid.ToString());
+        var service = await _device.GetServiceAsync(uuid.ToString());
         return service == null ? null : new BlueZGattService(service, uuid);
     }
 
     public async Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync() {
         await ConnectAsync();
 
-        var services = await (await GetNativeDevice()).GetServicesAsync();
+        var services = await _device.GetServicesAsync();
         var result = new List<IGattService>();
         foreach (var service in services) {
             // Resolve each service UUID asynchronously here (rather than via a
@@ -104,36 +99,16 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
         _connectedWatcher = null;
         _isConnected = false;
 
-        var nativeDevice = _nativeDevice;
-        if (nativeDevice == null) {
-            return;
-        }
-
         // The BlueZ disconnect is a blocking D-Bus round-trip. Run it on a
         // background thread so calling Disconnect() from the UI thread never
         // freezes the window while the D-Bus call is in flight.
         _ = Task.Run(() => {
             try {
-                _ = BlueZNativeInterop.Disconnect(nativeDevice);
-            }
-            catch {
+                _ = BlueZNativeInterop.Disconnect(_device);
+            } catch {
                 // Disconnect is best-effort; the link may already be down.
             }
         });
     }
-
-    /// <summary>
-    /// Gets the native BlueZ <c>Device</c> D-Bus proxy from the InTheHand
-    /// device (stored in its private <c>_device</c> field). Cached.
-    /// </summary>
-    private async Task<Device> GetNativeDevice() {
-        if (_nativeDevice != null) return _nativeDevice;
-
-        var adapter = (await BlueZManager.GetAdaptersAsync()).FirstOrDefault()
-                      ?? throw new InvalidOperationException("No Bluetooth adapter found.");
-        _nativeDevice = await adapter.GetDeviceAsync(_inTheHandDevice.Id)
-                        ?? throw new InvalidOperationException($"Device {Id} not found.");
-
-        return _nativeDevice;
-    }
 }
+#endif

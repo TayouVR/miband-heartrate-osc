@@ -1,26 +1,12 @@
+#if !WINDOWS
 using Linux.Bluetooth;
 using Tmds.DBus;
 
-namespace MiBandHR.Core.Bluetooth.InTheHand;
+namespace MiBandHR.Core.Bluetooth.BlueZ;
 
 /// <summary>
-/// Reflection-based bridge to the native BlueZ (<c>Linux.Bluetooth</c>)
-/// characteristic proxy on Linux.
-///
-/// The native object is an <c>IGattCharacteristic1</c> D-Bus proxy. It is
-/// referenced through <see cref="object"/> (and invoked via reflection) so
-/// that this assembly does not need a hard reference to the Linux-only
-/// <c>Linux.Bluetooth</c> package — that package is only present at runtime
-/// when InTheHand.BluetoothLE selects its BlueZ backend.
-///
-/// This centralizes:
-/// <list type="bullet">
-///   <item><description>Subscribing to characteristic value changes
-///   (<c>WatchPropertiesAsync</c>).</description></item>
-///   <item><description>Starting notifications (<c>StartNotifyAsync</c>) with
-///   retry on the transient <c>org.bluez.Error.InProgress</c> D-Bus error.
-///   </description></item>
-/// </list>
+/// BlueZ (<c>Linux.Bluetooth</c>) characteristic notification helpers, with a
+/// retry loop for the transient <c>org.bluez.Error.InProgress</c> D-Bus error.
 /// </summary>
 internal static class LinuxBlueZInterop {
     private const int MaxStartNotifyAttempts = 5;
@@ -48,17 +34,14 @@ internal static class LinuxBlueZInterop {
                 }
 
                 return;
-            }
-            catch (Exception ex) when (BlueZErrors.IsInProgress(ex) && attempt < MaxStartNotifyAttempts) {
+            } catch (Exception ex) when (BlueZErrors.IsInProgress(ex) && attempt < MaxStartNotifyAttempts) {
                 BluetoothLog.Retry(
                     $"StartNotify busy (org.bluez.Error.InProgress), retrying ({attempt}/{MaxStartNotifyAttempts})...");
                 await Task.Delay(StartNotifyRetryDelay);
-            }
-            catch (Exception ex) when (BlueZErrors.IsInProgress(ex)) {
+            } catch (Exception ex) when (BlueZErrors.IsInProgress(ex)) {
                 BluetoothLog.Error($"StartNotify still busy after {MaxStartNotifyAttempts} attempts, giving up.");
                 throw;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 BluetoothLog.Error($"StartNotify failed (attempt {attempt}): {ex.Message}");
                 throw;
             }
@@ -74,3 +57,4 @@ internal static class LinuxBlueZInterop {
         }
     }
 }
+#endif
