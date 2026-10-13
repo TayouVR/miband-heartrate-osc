@@ -29,6 +29,8 @@ public sealed class WindowsBluetoothDevice : IBluetoothDevice
 
     public bool IsConnected => _device?.ConnectionStatus == BluetoothConnectionStatus.Connected;
 
+    public event EventHandler? Disconnected;
+
     public async Task ConnectAsync()
     {
         if (IsConnected)

@@ -27,6 +27,8 @@ public sealed class SalarBluetoothDevice : IBluetoothDevice
     private readonly string _name;
     private IBleDevice? _device;
 
+    public event EventHandler? Disconnected;
+
     public SalarBluetoothDevice(IBleAdapter adapter, string address, string name)
     {
         _adapter = adapter;
@@ -106,6 +108,4 @@ public sealed class SalarBluetoothDevice : IBluetoothDevice
             }
         });
     }
-
-    public event EventHandler? Disconnected;
 }
