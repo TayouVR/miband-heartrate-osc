@@ -10,6 +10,11 @@
     "hash": "sha256-0DHRdpzmmkfu8Wv6H2m5CqaXUnTi/lygcw1fe+KhjlQ="
   },
   {
+    "pname": "Linux.Bluetooth",
+    "version": "5.67.1",
+    "hash": "sha256-Zu5hs03GAfHi+PY+T0ZHZhtfr5keofNeixR9Md54lQ0="
+  },
+  {
     "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
     "version": "8.0.2",
     "hash": "sha256-UfLfEQAkXxDaVPC7foE/J3FVEXd31Pu6uQIhTic3JgY="
@@ -48,11 +53,6 @@
     "pname": "System.Reactive",
     "version": "6.1.0",
     "hash": "sha256-zACYoZmKxHo0qKY8FOVa7jIsw7dN7WjdXdRRV95qY2Y="
-  },
-  {
-    "pname": "Tmds.DBus",
-    "version": "0.11.0",
-    "hash": "sha256-xNArjhSaEZcRiRB+mb9ZwUPQUqbLjRYt4JV2WUtM+hg="
   },
   {
     "pname": "Tmds.DBus",
