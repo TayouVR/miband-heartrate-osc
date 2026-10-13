@@ -95,29 +95,10 @@ internal static class BlueZNativeInterop {
                 await nativeCharacteristic.WriteValueAsync(data, options);
                 return;
             }
-            catch (Exception ex) when (IsBlueZInProgress(ex) && attempt < 5) {
+            catch (Exception ex) when (BlueZErrors.IsInProgress(ex) && attempt < 5) {
                 await Task.Delay(50);
             }
         }
-    }
-
-    /// <summary>
-    /// True when the exception (or any inner exception) is the BlueZ
-    /// <c>org.bluez.Error.InProgress</c> D-Bus error.
-    /// </summary>
-    private static bool IsBlueZInProgress(Exception ex) {
-        for (var current = ex; current != null; current = current.InnerException) {
-            var errorName = current.GetType().GetProperty("ErrorName")?.GetValue(current) as string;
-            if (errorName == "org.bluez.Error.InProgress") {
-                return true;
-            }
-
-            if (current.Message?.Contains("org.bluez.Error.InProgress") == true) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

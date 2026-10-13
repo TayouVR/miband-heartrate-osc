@@ -1,4 +1,5 @@
 using Linux.Bluetooth;
+using Tmds.DBus;
 
 namespace MiBandHR.Core.Bluetooth.InTheHand;
 
@@ -48,21 +49,17 @@ internal static class LinuxBlueZInterop {
 
                 return;
             }
-            catch (Exception ex) when (IsBlueZInProgress(ex) && attempt < MaxStartNotifyAttempts) {
+            catch (Exception ex) when (BlueZErrors.IsInProgress(ex) && attempt < MaxStartNotifyAttempts) {
                 BluetoothLog.Retry(
                     $"StartNotify busy (org.bluez.Error.InProgress), retrying ({attempt}/{MaxStartNotifyAttempts})...");
                 await Task.Delay(StartNotifyRetryDelay);
             }
-            catch (Exception ex) when (IsBlueZInProgress(ex)) {
+            catch (Exception ex) when (BlueZErrors.IsInProgress(ex)) {
                 BluetoothLog.Error($"StartNotify still busy after {MaxStartNotifyAttempts} attempts, giving up.");
                 throw;
             }
             catch (Exception ex) {
-                // Log any other errors (e.g., org.bluez.Error.Failed for
-                // encrypt-notify without encryption) so they are visible.
-                var errorName = ex.GetType().GetProperty("ErrorName")?.GetValue(ex) as string;
-                BluetoothLog.Error(
-                    $"StartNotify failed (attempt {attempt}): {errorName ?? ex.GetType().Name} - {ex.Message}");
+                BluetoothLog.Error($"StartNotify failed (attempt {attempt}): {ex.Message}");
                 throw;
             }
         }
@@ -75,26 +72,5 @@ internal static class LinuxBlueZInterop {
         } catch {
             // Stopping notify is best-effort; the connection may already be gone.
         }
-    }
-
-    /// <summary>
-    /// True when the exception (or any inner exception) is the BlueZ
-    /// <c>org.bluez.Error.InProgress</c> D-Bus error.
-    /// </summary>
-    private static bool IsBlueZInProgress(Exception ex) {
-        for (var current = ex; current != null; current = current.InnerException) {
-            // Tmds.DBus.DBusException exposes ErrorName; match on it, but also
-            // fall back to the message in case of wrapping.
-            var errorName = current.GetType().GetProperty("ErrorName")?.GetValue(current) as string;
-            if (errorName == "org.bluez.Error.InProgress") {
-                return true;
-            }
-
-            if (current.Message?.Contains("org.bluez.Error.InProgress") == true) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
