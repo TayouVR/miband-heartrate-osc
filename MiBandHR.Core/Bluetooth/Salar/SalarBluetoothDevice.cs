@@ -106,4 +106,6 @@ public sealed class SalarBluetoothDevice : IBluetoothDevice
             }
         });
     }
+
+    public event EventHandler? Disconnected;
 }

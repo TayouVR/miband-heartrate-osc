@@ -1,5 +1,8 @@
 using System.Reflection;
 using InTheHand.Bluetooth;
+using Linux.Bluetooth;
+using Linux.Bluetooth.Extensions;
+using Tmds.DBus;
 
 namespace MiBandHR.Core.Bluetooth.InTheHand;
 
@@ -22,8 +25,11 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
     private readonly BluetoothDevice _inTheHandDevice;
-    private object? _nativeDevice; // Linux.Bluetooth.Device
+    private Device? _nativeDevice; // Linux.Bluetooth.Device
     private bool _isConnected;
+    
+    public event EventHandler? Disconnected;
+    private IDisposable? _connectedWatcher;
 
     public BlueZBluetoothDevice(BluetoothDevice device)
     {
@@ -64,6 +70,11 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
         {
             await BlueZNativeInterop.ConnectNoPairingAsync(device, ConnectTimeout);
             _isConnected = true;
+            _connectedWatcher ??= await device.WatchPropertiesAsync(value => {
+                if (!value.Changed.Any(x => x.Key == "Connected" && x.Value is bool connected && !connected)) return;
+                _isConnected = false;
+                Disconnected?.Invoke(this, EventArgs.Empty);
+            });
             BluetoothLog.Success($"Connected to {Name}.");
         }
         catch (Exception e)
@@ -78,7 +89,7 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
     {
         await ConnectAsync();
 
-        var service = await BlueZNativeInterop.GetServiceAsync(GetNativeDevice(), uuid.ToString());
+        var service = await GetNativeDevice().GetServiceAsync(uuid.ToString());
         return service == null ? null : new BlueZGattService(service, uuid);
     }
 
@@ -86,13 +97,13 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
     {
         await ConnectAsync();
 
-        var services = await BlueZNativeInterop.GetServicesAsync(GetNativeDevice());
+        var services = await GetNativeDevice().GetServicesAsync();
         var result = new List<IGattService>();
         foreach (var service in services)
         {
             // Resolve each service UUID asynchronously here (rather than via a
             // blocking getter later) so the UI never waits on a D-Bus round-trip.
-            var uuidString = await BlueZNativeInterop.GetServiceUuidAsync(service);
+            var uuidString = await service.GetUUIDAsync();
             result.Add(new BlueZGattService(service, Guid.Parse(uuidString)));
         }
         return result;
@@ -100,6 +111,8 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
 
     public void Disconnect()
     {
+        _connectedWatcher?.Dispose();
+        _connectedWatcher = null;
         _isConnected = false;
 
         var nativeDevice = _nativeDevice;
@@ -128,17 +141,18 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice
     /// Gets the native BlueZ <c>Device</c> D-Bus proxy from the InTheHand
     /// device (stored in its private <c>_device</c> field). Cached.
     /// </summary>
-    private object GetNativeDevice()
+    private Device GetNativeDevice()
     {
         if (_nativeDevice != null)
         {
             return _nativeDevice;
         }
 
+        // not public - needs reflection
         var field = typeof(BluetoothDevice).GetField("_device", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException("Could not access the native BlueZ device on Linux.");
 
-        _nativeDevice = field.GetValue(_inTheHandDevice)
+        _nativeDevice = field.GetValue(_inTheHandDevice) as Device
             ?? throw new InvalidOperationException("The native BlueZ device is null.");
 
         return _nativeDevice;

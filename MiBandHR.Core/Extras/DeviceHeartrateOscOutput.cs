@@ -9,7 +9,7 @@ using OscCore;
 namespace MiBand_Heartrate.Extras; 
 
 public class DeviceHeartrateOscOutput {
-    Device _device;
+    Device? _device;
 
     private UdpClient _udpClient;
     private Socket _socket;
@@ -95,7 +95,7 @@ public class DeviceHeartrateOscOutput {
     }
 
     ~DeviceHeartrateOscOutput() {
-        _device.PropertyChanged -= OnDeviceChanged;
+        _device?.PropertyChanged -= OnDeviceChanged;
         _udpClient.Close();
         Cancel();
     }

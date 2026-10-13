@@ -29,4 +29,7 @@ public interface IBluetoothDevice
 
     /// <summary>Terminates the GATT connection.</summary>
     void Disconnect();
+    
+    /// <summary>Raised when the BLE link drops unexpectedly (not on an explicit <see cref="Disconnect"/>).</summary>
+    event EventHandler? Disconnected;
 }

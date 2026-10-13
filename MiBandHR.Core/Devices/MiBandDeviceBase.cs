@@ -69,6 +69,7 @@ public abstract class MiBandDeviceBase : Device
         DeviceId = device.Id;
         Name = device.Name;
         Model = model;
+        ConnectedDevice.Disconnected += OnDeviceDisconnected;
     }
 
     /// <summary>
@@ -130,6 +131,15 @@ public abstract class MiBandDeviceBase : Device
     public override void Dispose()
     {
         Disconnect();
+    }
+    
+    private void OnDeviceDisconnected(object? sender, EventArgs e)
+    {
+        _keepAliveCts?.Cancel();
+        _keepAliveCts = null;
+        _keepAliveTask = null;
+        HeartrateMonitorStarted = false;   // so auto-restart on reconnect isn't blocked
+        Status = DeviceStatus.OFFLINE;     // triggers MainViewModel's _guard -> Device.Connect()
     }
 
     // ------------------------------------------------------------------

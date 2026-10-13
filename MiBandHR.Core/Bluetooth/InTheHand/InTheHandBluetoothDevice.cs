@@ -54,4 +54,5 @@ public sealed class InTheHandBluetoothDevice : IBluetoothDevice
     }
 
     public void Disconnect() => _device.Gatt.Disconnect();
+    public event EventHandler? Disconnected;
 }

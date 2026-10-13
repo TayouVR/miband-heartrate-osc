@@ -1,3 +1,6 @@
+using Linux.Bluetooth;
+using Linux.Bluetooth.Extensions;
+
 namespace MiBandHR.Core.Bluetooth.InTheHand;
 
 /// <summary>
@@ -6,9 +9,9 @@ namespace MiBandHR.Core.Bluetooth.InTheHand;
 /// </summary>
 public sealed class BlueZGattService : IGattService
 {
-    private readonly object _nativeService;
+    private readonly IGattService1 _nativeService;
 
-    public BlueZGattService(object nativeService, Guid uuid)
+    public BlueZGattService(IGattService1 nativeService, Guid uuid)
     {
         _nativeService = nativeService;
         Uuid = uuid;
@@ -16,9 +19,8 @@ public sealed class BlueZGattService : IGattService
 
     public Guid Uuid { get; }
 
-    public async Task<IGattCharacteristic?> GetCharacteristicAsync(Guid uuid)
-    {
-        var characteristic = await BlueZNativeInterop.GetCharacteristicAsync(_nativeService, uuid.ToString());
+    public async Task<IGattCharacteristic?> GetCharacteristicAsync(Guid uuid) {
+        var characteristic = await _nativeService.GetCharacteristicAsync(uuid.ToString());
         return characteristic == null ? null : new BlueZGattCharacteristic(characteristic, uuid);
     }
 }
