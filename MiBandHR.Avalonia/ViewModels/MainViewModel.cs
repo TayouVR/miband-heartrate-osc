@@ -43,6 +43,10 @@ public class MainViewModel : ViewModelBase {
             _ => Device is { Status: DeviceStatus.OnlineAuth, HeartrateMonitorStarted: false });
         CommandStop = new RelayCommand(_ => StopMonitoring(),
             _ => Device is { HeartrateMonitorStarted: true });
+        CommandToggleMonitoring = new RelayCommand(_ => {
+            if (Device is { HeartrateMonitorStarted: true }) StopMonitoring();
+            else StartMonitoring();
+        }, _ => CommandStart.CanExecute(null) || CommandStop.CanExecute(null));
 
         // Mirror the Bluetooth layer's log output into the on-screen log panel.
         BluetoothLog.EntryLogged += OnBluetoothLogEntry;
@@ -243,6 +247,11 @@ public class MainViewModel : ViewModelBase {
     public RelayCommand CommandSettings { get; }
     public RelayCommand CommandStart { get; }
     public RelayCommand CommandStop { get; }
+    public RelayCommand CommandToggleMonitoring { get; }
+    public string MonitoringButtonToolTip => Device is { HeartrateMonitorStarted: true } ? "Stop" : "Start";
+    public FluentAvalonia.UI.Controls.FASymbol MonitoringButtonIcon => Device is { HeartrateMonitorStarted: true }
+        ? FluentAvalonia.UI.Controls.FASymbol.Stop
+        : FluentAvalonia.UI.Controls.FASymbol.Play;
 
     public void RefreshSettings() {
         OnPropertyChanged(nameof(UseAutoConnect));
@@ -475,5 +484,8 @@ public class MainViewModel : ViewModelBase {
         CommandDisconnect.RaiseCanExecuteChanged();
         CommandStart.RaiseCanExecuteChanged();
         CommandStop.RaiseCanExecuteChanged();
+        CommandToggleMonitoring.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(MonitoringButtonToolTip));
+        OnPropertyChanged(nameof(MonitoringButtonIcon));
     }
 }
