@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia.Threading;
+using MiBandHR.Avalonia.Controls;
 using MiBandHR.Avalonia.Views;
 using MiBandHR.Core;
 using MiBandHR.Core.Bluetooth;
@@ -49,6 +50,9 @@ public class MainViewModel : ViewModelBase {
 
     /// <summary>The window this view model belongs to (set by the view).</summary>
     public MainWindow? View { get; set; }
+
+    /// <summary>Heart rate history data points for sparkline visualization.</summary>
+    public ObservableCollection<HeartratePoint> HeartrateHistory { get; } = new();
 
     /// <summary>Live Bluetooth activity log shown in the side panel.</summary>
     public ObservableCollection<LogEntryViewModel> LogEntries { get; } = new();
@@ -248,6 +252,7 @@ public class MainViewModel : ViewModelBase {
         OnPropertyChanged(nameof(EnableFileOutput));
         OnPropertyChanged(nameof(EnableCsvOutput));
         OnPropertyChanged(nameof(EnableOscOutput));
+        PruneHeartrateHistory(DateTime.UtcNow);
     }
 
     private void OpenLogWindow() {
@@ -344,6 +349,7 @@ public class MainViewModel : ViewModelBase {
             Device = null;
         }
 
+        HeartrateHistory.Clear();
         DeviceUpdate();
     }
 
@@ -395,9 +401,29 @@ public class MainViewModel : ViewModelBase {
         }
     }
 
+    private void AddHeartratePoint(int bpm) {
+        var now = DateTime.UtcNow;
+        HeartrateHistory.Add(new HeartratePoint(now, bpm));
+        PruneHeartrateHistory(now);
+    }
+
+    private void PruneHeartrateHistory(DateTime now) {
+        var rangeSec = ConfigurationManager.Instance.CurrentConfig.Monitoring.GraphRangeSeconds;
+        if (rangeSec <= 0) return;
+
+        var cutoff = now.AddSeconds(-rangeSec);
+        while (HeartrateHistory.Count > 2 && HeartrateHistory[0].Timestamp < cutoff && HeartrateHistory[1].Timestamp <= cutoff) {
+            HeartrateHistory.RemoveAt(0);
+        }
+    }
+
     private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e) {
         if (e.PropertyName == nameof(Device.Heartrate)) {
+            var bpm = Device?.Heartrate ?? 0;
             Dispatcher.UIThread.Post(() => {
+                if (bpm > 0) {
+                    AddHeartratePoint(bpm);
+                }
                 OnPropertyChanged(nameof(HasHeartrate));
                 OnPropertyChanged(nameof(HeartrateStatusText));
             });
@@ -430,6 +456,10 @@ public class MainViewModel : ViewModelBase {
     }
 
     private void DeviceUpdate() {
+        if (Device == null || Device.Status == DeviceStatus.Offline) {
+            HeartrateHistory.Clear();
+        }
+
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(ShowConnectButtons));
         OnPropertyChanged(nameof(HasHeartrate));

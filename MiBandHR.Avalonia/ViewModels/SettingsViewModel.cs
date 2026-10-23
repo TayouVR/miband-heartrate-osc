@@ -219,6 +219,17 @@ public class SettingsViewModel : ViewModelBase {
         }
     }
 
+    public int GraphRangeSeconds {
+        get => ConfigurationManager.Instance.CurrentConfig.Monitoring.GraphRangeSeconds;
+        set {
+            var sanitized = Math.Max(0, value);
+            ConfigurationManager.Instance.CurrentConfig.Monitoring.GraphRangeSeconds = sanitized;
+            ConfigurationManager.Instance.SaveConfiguration();
+            OnPropertyChanged(nameof(GraphRangeSeconds));
+            _onSettingsChanged?.Invoke();
+        }
+    }
+
     public bool EnableFileOutput {
         get => ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled;
         set {
