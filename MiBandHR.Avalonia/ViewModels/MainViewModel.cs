@@ -119,6 +119,15 @@ public class MainViewModel : ViewModelBase {
         }
     }
 
+    public bool TryConnectOnStartup {
+        get => ConfigurationManager.Instance.CurrentConfig.Device.TryConnectOnStartup;
+        set {
+            ConfigurationManager.Instance.CurrentConfig.Device.TryConnectOnStartup = value;
+            ConfigurationManager.Instance.SaveConfiguration();
+            OnPropertyChanged(nameof(TryConnectOnStartup));
+        }
+    }
+
     /// <summary>Backends selectable on the current platform.</summary>
     public IReadOnlyList<BluetoothBackendOption> AvailableBackends { get; } =
         global::MiBandHR.Core.Bluetooth.BluetoothScannerFactory.AvailableBackends()
@@ -195,6 +204,7 @@ public class MainViewModel : ViewModelBase {
 
     public void RefreshSettings() {
         OnPropertyChanged(nameof(UseAutoConnect));
+        OnPropertyChanged(nameof(TryConnectOnStartup));
         OnPropertyChanged(nameof(SelectedBluetoothBackend));
         OnPropertyChanged(nameof(ContinuousMode));
         OnPropertyChanged(nameof(EnableFileOutput));

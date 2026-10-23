@@ -19,6 +19,10 @@ public partial class MainWindow : Window {
         _model.LogEntryAdded += ScrollLogToEnd;
 
         RestoreWindowPosition();
+
+        if (ConfigurationManager.Instance.CurrentConfig.Device.TryConnectOnStartup) {
+            _model.CommandAutoConnect.Execute(null);
+        }
     }
 
     private void ScrollLogToEnd() {

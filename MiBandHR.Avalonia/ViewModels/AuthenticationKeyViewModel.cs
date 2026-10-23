@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using MiBandHR.Avalonia.Views;
+using MiBandHR.Core.Configuration;
 
 namespace MiBandHR.Avalonia.ViewModels;
 
@@ -8,6 +9,7 @@ public partial class AuthenticationKeyViewModel : ViewModelBase {
     private string _errorText = "";
 
     public AuthenticationKeyViewModel() {
+        _key = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceAuthKey ?? "";
         CommandOk = new RelayCommand(_ => Validate());
         CommandCancel = new RelayCommand(_ => View?.Close(null));
     }
@@ -43,6 +45,9 @@ public partial class AuthenticationKeyViewModel : ViewModelBase {
             ErrorText = "Authentication key is not valid (expected 32 hexadecimal characters).";
             return;
         }
+
+        ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceAuthKey = Key;
+        ConfigurationManager.Instance.SaveConfiguration();
 
         View?.Close(Key);
     }
