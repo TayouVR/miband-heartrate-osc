@@ -6,6 +6,8 @@
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Styles>
+        <!-- Supply templates for controls not covered by FluentAvalonia, such as TableView. -->
+        <FluentTheme />
         <styling:FluentAvaloniaTheme />
     </Application.Styles>
 </Application>
