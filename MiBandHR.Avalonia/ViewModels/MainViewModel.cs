@@ -33,6 +33,7 @@ public class MainViewModel : ViewModelBase {
             _ => Device == null || Device.Status == DeviceStatus.Offline);
         CommandDisconnect = new RelayCommand(_ => Disconnect(),
             _ => Device != null && Device.Status != DeviceStatus.Offline);
+        CommandSettings = new RelayCommand(_ => OpenSettingsWindow());
         CommandStart = new RelayCommand(_ => StartMonitoring(),
             _ => Device is { Status: DeviceStatus.OnlineAuth, HeartrateMonitorStarted: false });
         CommandStop = new RelayCommand(_ => StopMonitoring(),
@@ -188,8 +189,26 @@ public class MainViewModel : ViewModelBase {
     public RelayCommand CommandConnect { get; }
     public RelayCommand CommandAutoConnect { get; }
     public RelayCommand CommandDisconnect { get; }
+    public RelayCommand CommandSettings { get; }
     public RelayCommand CommandStart { get; }
     public RelayCommand CommandStop { get; }
+
+    public void RefreshSettings() {
+        OnPropertyChanged(nameof(UseAutoConnect));
+        OnPropertyChanged(nameof(SelectedBluetoothBackend));
+        OnPropertyChanged(nameof(ContinuousMode));
+        OnPropertyChanged(nameof(EnableFileOutput));
+        OnPropertyChanged(nameof(EnableCsvOutput));
+        OnPropertyChanged(nameof(EnableOscOutput));
+    }
+
+    private async void OpenSettingsWindow() {
+        if (View == null) return;
+
+        var dialog = new SettingsWindow(RefreshSettings);
+        await dialog.ShowDialog(View);
+        RefreshSettings();
+    }
 
     private async void OpenConnectionWindow() {
         if (View == null) return;

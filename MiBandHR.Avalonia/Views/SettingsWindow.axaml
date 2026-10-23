@@ -1,0 +1,45 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MiBandHR.Avalonia.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="MiBandHR.Avalonia.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Icon="/Assets/icon.ico"
+        SizeToContent="WidthAndHeight"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        Title="Heartrate Monitor - Settings">
+
+    <Design.DataContext>
+        <vm:SettingsViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="10" MinWidth="480">
+        <HeaderedContentControl Header="Options" Margin="5">
+            <StackPanel Margin="5">
+                <CheckBox Margin="0 2" IsChecked="{Binding UseAutoConnect}">Use Auto Connect</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding ContinuousMode}">Enable continuous mode</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableCsvOutput}">Export data in CSV file</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableFileOutput}">Write realtime data in text file</CheckBox>
+                <CheckBox Margin="0 2" IsChecked="{Binding EnableOscOutput}">Send OSC to VRChat</CheckBox>
+
+                <Grid Margin="0 6 0 2" ColumnDefinitions="*, *">
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center">Bluetooth backend</TextBlock>
+                    <ComboBox Grid.Column="1"
+                              HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding AvailableBackends}"
+                              SelectedItem="{Binding SelectedBluetoothBackend}" />
+                </Grid>
+            </StackPanel>
+        </HeaderedContentControl>
+
+        <Separator Margin="0 10 0 0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button Content="Close" Padding="20 5" Margin="5 10 5 5"
+                    Command="{Binding CommandClose}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

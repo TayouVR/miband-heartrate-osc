@@ -6,6 +6,7 @@
         mc:Ignorable="d"
         x:Class="MiBandHR.Avalonia.Views.MainWindow"
         x:DataType="vm:MainViewModel"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
         Icon="/Assets/icon.ico"
         Width="760" Height="460"
         MinWidth="760" MinHeight="460"
@@ -19,25 +20,33 @@
 
         <!-- Left: main content -->
         <StackPanel Grid.Column="0">
-            <Grid Margin="5" VerticalAlignment="Top" ColumnDefinitions="*, 0.6*">
+            <Grid Margin="5" VerticalAlignment="Top" ColumnDefinitions="*, Auto">
                 <TextBlock Grid.Column="0"
                            VerticalAlignment="Center"
                            Text="{Binding StatusText}" />
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1"
-                            IsVisible="{Binding ShowConnectButtons}">
-                    <Button Content="Manual Connect" Padding="10 5" Margin="5 5 0 5"
-                            Command="{Binding CommandConnect}"
-                            IsVisible="{Binding !UseAutoConnect}" />
-                    <Button Content="Auto Connect" Padding="10 5" Margin="5 5 0 5"
-                            Command="{Binding CommandAutoConnect}"
-                            IsVisible="{Binding UseAutoConnect}" />
-                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1">
+                    <StackPanel Orientation="Horizontal"
+                                IsVisible="{Binding ShowConnectButtons}">
+                        <Button Content="Manual Connect" Padding="10 5" Margin="5 5 0 5" Height="32"
+                                Command="{Binding CommandConnect}"
+                                IsVisible="{Binding !UseAutoConnect}" />
+                        <Button Content="Auto Connect" Padding="10 5" Margin="5 5 0 5" Height="32"
+                                Command="{Binding CommandAutoConnect}"
+                                IsVisible="{Binding UseAutoConnect}" />
+                    </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="1"
-                            IsVisible="{Binding IsConnected}">
-                    <Button Content="Disconnect" Padding="10 5" Margin="5 5 0 5"
-                            Command="{Binding CommandDisconnect}" />
+                    <StackPanel Orientation="Horizontal"
+                                IsVisible="{Binding IsConnected}">
+                        <Button Content="Disconnect" Padding="10 5" Margin="5 5 0 5" Height="32"
+                                Command="{Binding CommandDisconnect}" />
+                    </StackPanel>
+
+                    <Button Margin="5 5 0 5" Height="32" Width="32"
+                            Command="{Binding CommandSettings}"
+                            ToolTip.Tip="Settings">
+                        <ui:FASymbolIcon Symbol="Settings" FontSize="16" Height="16" Width="16" />
+                    </Button>
                 </StackPanel>
             </Grid>
 
@@ -57,24 +66,6 @@
                                    Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
                         <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
                     </StackPanel>
-                </StackPanel>
-            </HeaderedContentControl>
-
-            <HeaderedContentControl Header="Options" Margin="5">
-                <StackPanel Margin="5">
-                    <CheckBox Margin="0 2" IsChecked="{Binding UseAutoConnect}">Use Auto Connect</CheckBox>
-                    <CheckBox Margin="0 2" IsChecked="{Binding ContinuousMode}">Enable continuous mode</CheckBox>
-                    <CheckBox Margin="0 2" IsChecked="{Binding EnableCsvOutput}">Export data in CSV file</CheckBox>
-                    <CheckBox Margin="0 2" IsChecked="{Binding EnableFileOutput}">Write realtime data in text file</CheckBox>
-                    <CheckBox Margin="0 2" IsChecked="{Binding EnableOscOutput}">Send OSC to VRChat</CheckBox>
-
-                    <Grid Margin="0 6 0 2" ColumnDefinitions="120, *">
-                        <TextBlock Grid.Column="0" VerticalAlignment="Center">Bluetooth backend</TextBlock>
-                        <ComboBox Grid.Column="1"
-                                  HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding AvailableBackends}"
-                                  SelectedItem="{Binding SelectedBluetoothBackend}" />
-                    </Grid>
                 </StackPanel>
             </HeaderedContentControl>
 
