@@ -33,6 +33,9 @@ public class DeviceConfig {
 public class MonitoringConfig {
     public bool ContinuousMode { get; set; } = true;
 
+    /// <summary>Graph range in seconds (0 = full session).</summary>
+    public int GraphRangeSeconds { get; set; } = 60;
+
     /// <summary>Last recorded minimum heart rate (0 = none recorded yet).</summary>
     public ushort MinHeartrate { get; set; }
 
@@ -54,6 +57,6 @@ public class OutputConfig {
 public class WindowConfig {
     public int Left { get; set; } = -1;
     public int Top { get; set; } = -1;
-    public int Width { get; set; } = 400;
-    public int Height { get; set; } = 420;
+    public int Width { get; set; } = 440;
+    public int Height { get; set; } = 220;
 }

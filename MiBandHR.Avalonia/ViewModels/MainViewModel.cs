@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia.Threading;
+using MiBandHR.Avalonia.Controls;
 using MiBandHR.Avalonia.Views;
 using MiBandHR.Core;
 using MiBandHR.Core.Bluetooth;
@@ -20,7 +21,9 @@ public class MainViewModel : ViewModelBase {
     }
 
     private BLE? _autoConnectBluetooth;
+    private bool _isAutoConnecting;
     private bool _guard;
+    private LogWindow? _logWindow;
 
     private DeviceHeartrateFileOutput? _fileOutput;
     private DeviceHeartrateCsvOutput? _csvOutput;
@@ -28,15 +31,22 @@ public class MainViewModel : ViewModelBase {
 
     public MainViewModel() {
         CommandConnect = new RelayCommand(_ => OpenConnectionWindow(),
-            _ => Device == null || Device.Status == DeviceStatus.Offline);
+            _ => !IsAutoConnecting && (Device == null || Device.Status == DeviceStatus.Offline));
         CommandAutoConnect = new RelayCommand(_ => StartAutoConnect(),
-            _ => Device == null || Device.Status == DeviceStatus.Offline);
+            _ => !IsAutoConnecting && (Device == null || Device.Status == DeviceStatus.Offline));
         CommandDisconnect = new RelayCommand(_ => Disconnect(),
-            _ => Device != null && Device.Status != DeviceStatus.Offline);
+            _ => IsAutoConnecting || (Device != null && Device.Status != DeviceStatus.Offline));
+        CommandLog = new RelayCommand(_ => OpenLogWindow());
+        CommandClearLog = new RelayCommand(_ => LogEntries.Clear());
+        CommandSettings = new RelayCommand(_ => OpenSettingsWindow());
         CommandStart = new RelayCommand(_ => StartMonitoring(),
             _ => Device is { Status: DeviceStatus.OnlineAuth, HeartrateMonitorStarted: false });
         CommandStop = new RelayCommand(_ => StopMonitoring(),
             _ => Device is { HeartrateMonitorStarted: true });
+        CommandToggleMonitoring = new RelayCommand(_ => {
+            if (Device is { HeartrateMonitorStarted: true }) StopMonitoring();
+            else StartMonitoring();
+        }, _ => CommandStart.CanExecute(null) || CommandStop.CanExecute(null));
 
         // Mirror the Bluetooth layer's log output into the on-screen log panel.
         BluetoothLog.EntryLogged += OnBluetoothLogEntry;
@@ -44,6 +54,9 @@ public class MainViewModel : ViewModelBase {
 
     /// <summary>The window this view model belongs to (set by the view).</summary>
     public MainWindow? View { get; set; }
+
+    /// <summary>Heart rate history data points for sparkline visualization.</summary>
+    public ObservableCollection<HeartratePoint> HeartrateHistory { get; } = new();
 
     /// <summary>Live Bluetooth activity log shown in the side panel.</summary>
     public ObservableCollection<LogEntryViewModel> LogEntries { get; } = new();
@@ -85,10 +98,42 @@ public class MainViewModel : ViewModelBase {
         }
     }
 
+    public bool IsAutoConnecting {
+        get => _isAutoConnecting;
+        private set {
+            _isAutoConnecting = value;
+            OnPropertyChanged(nameof(IsAutoConnecting));
+            OnPropertyChanged(nameof(ShowConnectButtons));
+            OnPropertyChanged(nameof(IsConnected));
+            OnPropertyChanged(nameof(HasHeartrate));
+            OnPropertyChanged(nameof(HeartrateStatusText));
+        }
+    }
+
+    public bool HasHeartrate => Device is { Status: DeviceStatus.OnlineAuth, Heartrate: > 0 };
+
+    public string HeartrateStatusText {
+        get {
+            if (IsAutoConnecting) {
+                return "Connecting";
+            }
+
+            if (Device == null || Device.Status == DeviceStatus.Offline) {
+                return "Disconnected";
+            }
+
+            return Device.Status switch {
+                DeviceStatus.Connecting => "Connecting",
+                DeviceStatus.Authenticating or DeviceStatus.OnlineUnauth => "Authenticating",
+                DeviceStatus.OnlineAuth => Device.Heartrate > 0 ? $"{Device.Heartrate} bpm" : "Connected - waiting for data",
+                _ => "Disconnected"
+            };
+        }
+    }
+
     public bool IsConnected {
-        get;
+        get => (Device != null && Device.Status != DeviceStatus.Offline) || IsAutoConnecting;
         set {
-            field = value;
             OnPropertyChanged(nameof(IsConnected));
             OnPropertyChanged(nameof(ShowConnectButtons));
         }
@@ -100,10 +145,10 @@ public class MainViewModel : ViewModelBase {
             field = value;
             OnPropertyChanged(nameof(StatusText));
         }
-    } = "No device connected";
+    } = "Disconnected";
 
-    /// <summary>True while no device is connected (the manual/auto connect buttons are visible).</summary>
-    public bool ShowConnectButtons => !IsConnected;
+    /// <summary>True while no device is connected or connecting (the manual/auto connect buttons are visible).</summary>
+    public bool ShowConnectButtons => !IsConnected && !IsAutoConnecting;
 
     // ------------------------------------------------------------------
     // Settings (persisted in the shared TOML configuration)
@@ -115,6 +160,15 @@ public class MainViewModel : ViewModelBase {
             ConfigurationManager.Instance.CurrentConfig.Device.UseAutoConnect = value;
             ConfigurationManager.Instance.SaveConfiguration();
             OnPropertyChanged(nameof(UseAutoConnect));
+        }
+    }
+
+    public bool TryConnectOnStartup {
+        get => ConfigurationManager.Instance.CurrentConfig.Device.TryConnectOnStartup;
+        set {
+            ConfigurationManager.Instance.CurrentConfig.Device.TryConnectOnStartup = value;
+            ConfigurationManager.Instance.SaveConfiguration();
+            OnPropertyChanged(nameof(TryConnectOnStartup));
         }
     }
 
@@ -188,8 +242,53 @@ public class MainViewModel : ViewModelBase {
     public RelayCommand CommandConnect { get; }
     public RelayCommand CommandAutoConnect { get; }
     public RelayCommand CommandDisconnect { get; }
+    public RelayCommand CommandLog { get; }
+    public RelayCommand CommandClearLog { get; }
+    public RelayCommand CommandSettings { get; }
     public RelayCommand CommandStart { get; }
     public RelayCommand CommandStop { get; }
+    public RelayCommand CommandToggleMonitoring { get; }
+    public string MonitoringButtonToolTip => Device is { HeartrateMonitorStarted: true } ? "Stop" : "Start";
+    public FluentAvalonia.UI.Controls.FASymbol MonitoringButtonIcon => Device is { HeartrateMonitorStarted: true }
+        ? FluentAvalonia.UI.Controls.FASymbol.Stop
+        : FluentAvalonia.UI.Controls.FASymbol.Play;
+
+    public void RefreshSettings() {
+        OnPropertyChanged(nameof(UseAutoConnect));
+        OnPropertyChanged(nameof(TryConnectOnStartup));
+        OnPropertyChanged(nameof(SelectedBluetoothBackend));
+        OnPropertyChanged(nameof(ContinuousMode));
+        OnPropertyChanged(nameof(EnableFileOutput));
+        OnPropertyChanged(nameof(EnableCsvOutput));
+        OnPropertyChanged(nameof(EnableOscOutput));
+        PruneHeartrateHistory(DateTime.UtcNow);
+    }
+
+    private void OpenLogWindow() {
+        if (View == null) return;
+
+        if (_logWindow != null && _logWindow.IsVisible) {
+            _logWindow.Activate();
+            return;
+        }
+
+        _logWindow = new LogWindow(this);
+        _logWindow.Closed += (_, _) => _logWindow = null;
+        _logWindow.Show(View);
+    }
+
+    public void CloseLogWindow() {
+        _logWindow?.Close();
+        _logWindow = null;
+    }
+
+    private async void OpenSettingsWindow() {
+        if (View == null) return;
+
+        var dialog = new SettingsWindow(RefreshSettings);
+        await dialog.ShowDialog(View);
+        RefreshSettings();
+    }
 
     private async void OpenConnectionWindow() {
         if (View == null) return;
@@ -204,6 +303,9 @@ public class MainViewModel : ViewModelBase {
     }
 
     private void StartAutoConnect() {
+        IsAutoConnecting = true;
+        DeviceUpdate();
+
         _autoConnectBluetooth = new BLE();
 
         var defaultDeviceVersion = ConfigurationManager.Instance.CurrentConfig.Device.AutoConnectDeviceVersion;
@@ -229,12 +331,15 @@ public class MainViewModel : ViewModelBase {
 
             if (_autoConnectBluetooth != null) {
                 _autoConnectBluetooth.DeviceFound -= OnBluetoothAdded;
+                _autoConnectBluetooth = null;
             }
 
-            device.Connect();
-
             // Property changes must happen on the UI thread.
-            Dispatcher.UIThread.Post(() => Device = device);
+            Dispatcher.UIThread.Post(() => {
+                IsAutoConnecting = false;
+                device.Connect();
+                Device = device;
+            });
         }
 
         _autoConnectBluetooth.DeviceFound += OnBluetoothAdded;
@@ -242,11 +347,19 @@ public class MainViewModel : ViewModelBase {
     }
 
     private void Disconnect() {
+        if (_autoConnectBluetooth != null) {
+            _autoConnectBluetooth = null;
+        }
+        IsAutoConnecting = false;
+
         if (Device != null) {
             _guard = false;
             Device.Disconnect();
             Device = null;
         }
+
+        HeartrateHistory.Clear();
+        DeviceUpdate();
     }
 
     private void StartMonitoring() {
@@ -280,21 +393,51 @@ public class MainViewModel : ViewModelBase {
     // ------------------------------------------------------------------
 
     private void UpdateStatusText() {
-        if (Device != null) {
+        if (IsAutoConnecting) {
+            StatusText = "Searching for device...";
+        }
+        else if (Device != null) {
             StatusText = Device.Status switch {
-                DeviceStatus.Offline => "No device connected",
-                DeviceStatus.OnlineUnauth => $"Connected to {Device.Name} | Not auth",
-                DeviceStatus.OnlineAuth => $"Connected to {Device.Name} | Auth",
+                DeviceStatus.Offline => "Disconnected",
+                DeviceStatus.Connecting => $"Connecting to {Device.Name}...",
+                DeviceStatus.Authenticating or DeviceStatus.OnlineUnauth => $"Authenticating with {Device.Name}...",
+                DeviceStatus.OnlineAuth => $"Connected to {Device.Name}",
                 _ => StatusText
             };
         }
         else {
-            StatusText = "No device connected";
+            StatusText = "Disconnected";
+        }
+    }
+
+    private void AddHeartratePoint(int bpm) {
+        var now = DateTime.UtcNow;
+        HeartrateHistory.Add(new HeartratePoint(now, bpm));
+        PruneHeartrateHistory(now);
+    }
+
+    private void PruneHeartrateHistory(DateTime now) {
+        var rangeSec = ConfigurationManager.Instance.CurrentConfig.Monitoring.GraphRangeSeconds;
+        if (rangeSec <= 0) return;
+
+        var cutoff = now.AddSeconds(-rangeSec);
+        while (HeartrateHistory.Count > 2 && HeartrateHistory[0].Timestamp < cutoff && HeartrateHistory[1].Timestamp <= cutoff) {
+            HeartrateHistory.RemoveAt(0);
         }
     }
 
     private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (e.PropertyName == nameof(Device.Status)) {
+        if (e.PropertyName == nameof(Device.Heartrate)) {
+            var bpm = Device?.Heartrate ?? 0;
+            Dispatcher.UIThread.Post(() => {
+                if (bpm > 0) {
+                    AddHeartratePoint(bpm);
+                }
+                OnPropertyChanged(nameof(HasHeartrate));
+                OnPropertyChanged(nameof(HeartrateStatusText));
+            });
+        }
+        else if (e.PropertyName == nameof(Device.Status)) {
             // Device callbacks arrive on background threads; marshal to the UI thread.
             Dispatcher.UIThread.Post(DeviceUpdate);
 
@@ -322,10 +465,14 @@ public class MainViewModel : ViewModelBase {
     }
 
     private void DeviceUpdate() {
-        // Must be reset even when Device is null, otherwise the connect buttons
-        // stay hidden (ShowConnectButtons == !IsConnected) and the UI is stuck
-        // after a disconnect.
-        IsConnected = Device != null && Device.Status != DeviceStatus.Offline;
+        if (Device == null || Device.Status == DeviceStatus.Offline) {
+            HeartrateHistory.Clear();
+        }
+
+        OnPropertyChanged(nameof(IsConnected));
+        OnPropertyChanged(nameof(ShowConnectButtons));
+        OnPropertyChanged(nameof(HasHeartrate));
+        OnPropertyChanged(nameof(HeartrateStatusText));
 
         UpdateStatusText();
         RaiseCommandStates();
@@ -337,5 +484,8 @@ public class MainViewModel : ViewModelBase {
         CommandDisconnect.RaiseCanExecuteChanged();
         CommandStart.RaiseCanExecuteChanged();
         CommandStop.RaiseCanExecuteChanged();
+        CommandToggleMonitoring.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(MonitoringButtonToolTip));
+        OnPropertyChanged(nameof(MonitoringButtonIcon));
     }
 }

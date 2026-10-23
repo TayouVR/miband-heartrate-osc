@@ -109,7 +109,7 @@ public abstract class MiBandDeviceBase : Device {
     public override void Connect() {
         BluetoothLog.Info($"Connecting to {Name}...");
         Disconnect();
-        Status = DeviceStatus.OnlineUnauth;
+        Status = DeviceStatus.Connecting;
         Authenticate();
     }
 
@@ -120,6 +120,7 @@ public abstract class MiBandDeviceBase : Device {
             BluetoothLog.Info($"Disconnected from {Name}.");
         }
 
+        Heartrate = 0;
         Status = DeviceStatus.Offline;
     }
 
@@ -131,6 +132,7 @@ public abstract class MiBandDeviceBase : Device {
         _keepAliveCts?.Cancel();
         _keepAliveCts = null;
         HeartrateMonitorStarted = false; // so auto-restart on reconnect isn't blocked
+        Heartrate = 0;
         Status = DeviceStatus.Offline; // triggers MainViewModel's _guard -> Device.Connect()
     }
 
@@ -159,18 +161,22 @@ public abstract class MiBandDeviceBase : Device {
                 // (Windows) service discovery connects implicitly, on others
                 // (Linux/BlueZ) it does not — and the auth handshake would
                 // fail with "Not Connected".
+                Status = DeviceStatus.Connecting;
                 await ConnectedDevice.ConnectAsync();
 
+                Status = DeviceStatus.Authenticating;
                 BluetoothLog.Info("Starting authentication handshake...");
                 var service = await ConnectedDevice.GetPrimaryServiceAsync(AuthServiceUuid);
                 if (service == null) {
                     BluetoothLog.Error("Authentication failed: auth service (0xFEE1) not found.");
+                    Status = DeviceStatus.Offline;
                     return;
                 }
 
                 var characteristic = await service.GetCharacteristicAsync(AuthCharacteristicUuid);
                 if (characteristic == null) {
                     BluetoothLog.Error("Authentication failed: auth characteristic not found.");
+                    Status = DeviceStatus.Offline;
                     return;
                 }
 
@@ -186,6 +192,7 @@ public abstract class MiBandDeviceBase : Device {
                 await Write(characteristic, initialCommand);
             } catch (Exception e) {
                 _authState = AuthState.Failed;
+                Status = DeviceStatus.Offline;
                 BluetoothLog.Error($"Authentication failed: {e.Message}");
             }
         });
@@ -211,6 +218,7 @@ public abstract class MiBandDeviceBase : Device {
                 else if (value[2] != 0x01) {
                     BluetoothLog.Error("Authentication failed (key rejected).");
                     _authState = AuthState.Failed;
+                    Status = DeviceStatus.Offline;
                 }
                 else {
                     // Duplicate "key accepted" notification; the challenge has
@@ -225,6 +233,7 @@ public abstract class MiBandDeviceBase : Device {
                 if (value[2] != 0x01) {
                     BluetoothLog.Error("Authentication failed (random number request rejected).");
                     _authState = AuthState.Failed;
+                    Status = DeviceStatus.Offline;
                     break;
                 }
 
@@ -261,6 +270,7 @@ public abstract class MiBandDeviceBase : Device {
                 else {
                     BluetoothLog.Error("Authentication failed (encrypted number rejected).");
                     _authState = AuthState.Failed;
+                    Status = DeviceStatus.Offline;
                 }
 
                 break;
