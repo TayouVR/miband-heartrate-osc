@@ -9,10 +9,10 @@
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:controls="using:MiBandHR.Avalonia.Controls"
         Icon="/Assets/icon.ico"
-        Width="440" Height="220"
-        MinWidth="380" MinHeight="200"
+        Width="440" Height="160"
+        MinWidth="400" MinHeight="160"
         SizeToContent="Height"
-        CanResize="True"
+        CanResize="False"
         Title="Heartrate Monitor">
 
     <Design.DataContext>
@@ -56,43 +56,48 @@
             </StackPanel>
         </Grid>
 
-        <HeaderedContentControl Header="Heartrate" Margin="0 10 0 0">
+        <ContentControl Margin="0 10 0 0">
             <Panel>
                 <controls:SparklineControl Points="{Binding HeartrateHistory}"
                                            Opacity="0.45"
                                            VerticalAlignment="Stretch"
                                            HorizontalAlignment="Stretch" />
 
-                <StackPanel Orientation="Vertical">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
-                                IsVisible="{Binding HasHeartrate}">
-                        <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center"
-                                   Text="{Binding Device.Heartrate}" />
-                        <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center">&#160;bpm</TextBlock>
+                <Grid ColumnDefinitions="* 50" Height="100">
+                    <StackPanel Grid.Column="0" Orientation="Vertical">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                    IsVisible="{Binding HasHeartrate}">
+                            <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center"
+                                       Text="{Binding Device.Heartrate}" />
+                            <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center">&#160;bpm</TextBlock>
+                        </StackPanel>
+                        <TextBlock FontSize="20" Margin="0 11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="Medium"
+                                   IsVisible="{Binding !HasHeartrate}"
+                                   Text="{Binding HeartrateStatusText}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock VerticalAlignment="Center">Min: </TextBlock>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                            <TextBlock VerticalAlignment="Center"> bpm&#160;&#160;Max: </TextBlock>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                            <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
+                        </StackPanel>
                     </StackPanel>
-                    <TextBlock FontSize="20" Margin="0 11"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FontWeight="Medium"
-                               IsVisible="{Binding !HasHeartrate}"
-                               Text="{Binding HeartrateStatusText}" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock VerticalAlignment="Center">Min: </TextBlock>
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
-                        <TextBlock VerticalAlignment="Center"> bpm&#160;&#160;Max: </TextBlock>
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
-                        <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
-                    </StackPanel>
-                </StackPanel>
+                    <Grid Column="1" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" RowDefinitions="* *">
+                        <Button Grid.Row="0" ToolTip.Tip="Start" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Command="{Binding CommandStart}" Margin="2">
+                            <ui:FASymbolIcon Symbol="Play" FontSize="16" Height="16" Width="16" />
+                        </Button>
+                        <Button Grid.Row="1" ToolTip.Tip="Stop" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                Command="{Binding CommandStop}" Margin="2">
+                            <ui:FASymbolIcon Symbol="Stop" FontSize="16" Height="16" Width="16" />
+                        </Button>
+                    </Grid>
+                </Grid>
             </Panel>
-        </HeaderedContentControl>
-
-        <Grid Height="40" Margin="0 15 0 0" ColumnDefinitions="*, *">
-            <Button Content="Start" Grid.Column="0" Margin="0 0 5 0"
-                    Command="{Binding CommandStart}" />
-            <Button Content="Stop" Grid.Column="1" Margin="5 0 0 0"
-                    Command="{Binding CommandStop}" />
-        </Grid>
+        </ContentControl>
     </StackPanel>
 </Window>

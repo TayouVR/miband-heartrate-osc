@@ -64,31 +64,29 @@
 
             <!-- Remembered Authenticated Devices (Mi Band 2/3) -->
             <HeaderedContentControl Header="Remembered Authenticated Devices" Margin="5">
-                <StackPanel Margin="5" Spacing="8">
+                <StackPanel Margin="4" Spacing="8">
                     <!-- Devices Table -->
                     <TableView ItemsSource="{Binding AuthKeys}">
                         <TableView.Columns>
-                            <TableViewColumn Header="Device Address / ID" Width="160">
+                            <TableViewColumn Header="Device Address / ID" Width="160" HorizontalContentAlignment="Stretch" CanUserResize="True">
                                 <TableViewColumn.CellTemplate>
                                     <DataTemplate x:DataType="vm:AuthKeyEntryViewModel">
                                         <TextBox Height="32"
-                                                 Margin="0 0 4 0"
                                                  VerticalContentAlignment="Center"
                                                  Text="{Binding DeviceId}" />
                                     </DataTemplate>
                                 </TableViewColumn.CellTemplate>
                             </TableViewColumn>
-                            <TableViewColumn Header="Authentication Key" Width="*">
+                            <TableViewColumn Header="Authentication Key" Width="*" HorizontalContentAlignment="Stretch" CanUserResize="True">
                                 <TableViewColumn.CellTemplate>
                                     <DataTemplate x:DataType="vm:AuthKeyEntryViewModel">
                                         <TextBox Height="32"
-                                                 Margin="0 0 4 0"
                                                  VerticalContentAlignment="Center"
                                                  Text="{Binding AuthKey}" />
                                     </DataTemplate>
                                 </TableViewColumn.CellTemplate>
                             </TableViewColumn>
-                            <TableViewColumn Header="Action" Width="80" HorizontalContentAlignment="Center">
+                            <TableViewColumn Header="Action" Width="80" HorizontalContentAlignment="Stretch">
                                 <TableViewColumn.CellTemplate>
                                     <DataTemplate x:DataType="vm:AuthKeyEntryViewModel">
                                         <Button Height="32"

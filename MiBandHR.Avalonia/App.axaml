@@ -9,5 +9,11 @@
         <!-- Supply templates for controls not covered by FluentAvalonia, such as TableView. -->
         <FluentTheme />
         <styling:FluentAvaloniaTheme />
+        <Style Selector="TableViewRow">
+            <Setter Property="Padding" Value="4"></Setter>
+        </Style>
+        <Style Selector="TableViewCell">
+            <Setter Property="Padding" Value="6 0 0 0"></Setter>
+        </Style>
     </Application.Styles>
 </Application>
