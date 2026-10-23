@@ -259,4 +259,26 @@ public class SettingsViewModel : ViewModelBase {
             _onSettingsChanged?.Invoke();
         }
     }
+
+    public string OscAddress {
+        get => ConfigurationManager.Instance.CurrentConfig.Osc.Host;
+        set {
+            var sanitized = value ?? "";
+            ConfigurationManager.Instance.CurrentConfig.Osc.Host = sanitized;
+            ConfigurationManager.Instance.SaveConfiguration();
+            OnPropertyChanged(nameof(OscAddress));
+            _onSettingsChanged?.Invoke();
+        }
+    }
+
+    public int OscPort {
+        get => ConfigurationManager.Instance.CurrentConfig.Osc.Port;
+        set {
+            var sanitized = Math.Max(0, value);
+            ConfigurationManager.Instance.CurrentConfig.Osc.Port = sanitized;
+            ConfigurationManager.Instance.SaveConfiguration();
+            OnPropertyChanged(nameof(OscPort));
+            _onSettingsChanged?.Invoke();
+        }
+    }
 }

@@ -9,6 +9,7 @@ public class AppConfig {
     public MonitoringConfig Monitoring { get; set; } = new();
     public OutputConfig Output { get; set; } = new();
     public WindowConfig Window { get; set; } = new();
+    public OscConfig Osc { get; set; } = new();
 }
 
 public class DeviceConfig {
@@ -59,4 +60,9 @@ public class WindowConfig {
     public int Top { get; set; } = -1;
     public int Width { get; set; } = 440;
     public int Height { get; set; } = 220;
+}
+
+public class OscConfig {
+    public string Host { get; set; } = "localhost";
+    public int Port { get; set; } = 9000;
 }

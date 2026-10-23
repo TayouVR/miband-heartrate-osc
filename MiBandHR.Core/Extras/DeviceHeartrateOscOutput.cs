@@ -9,7 +9,6 @@ namespace MiBandHR.Core.Extras;
 public class DeviceHeartrateOscOutput {
     private readonly Device _device;
 
-    private readonly UdpClient _udpClient;
     private readonly Socket _socket;
 
     private CancellationTokenSource? _cancellationTokenSource;
@@ -85,12 +84,8 @@ public class DeviceHeartrateOscOutput {
     private bool _hrConnected;
 
     public DeviceHeartrateOscOutput(Device device) {
-        // Choose an unused port at random
-        _udpClient = new UdpClient();
-        _udpClient.Connect("localhost", 9000);
-
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        _socket.Connect("localhost", 9000);
+        _socket.Connect( ConfigurationManager.Instance.CurrentConfig.Osc.Host, ConfigurationManager.Instance.CurrentConfig.Osc.Port);
 
         _device = device;
 
@@ -99,7 +94,7 @@ public class DeviceHeartrateOscOutput {
 
     ~DeviceHeartrateOscOutput() {
         _device.PropertyChanged -= OnDeviceChanged;
-        _udpClient.Close();
+        _socket.Close();
         Cancel();
     }
 
