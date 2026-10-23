@@ -21,6 +21,7 @@ public class MainViewModel : ViewModelBase {
 
     private BLE? _autoConnectBluetooth;
     private bool _guard;
+    private LogWindow? _logWindow;
 
     private DeviceHeartrateFileOutput? _fileOutput;
     private DeviceHeartrateCsvOutput? _csvOutput;
@@ -33,6 +34,8 @@ public class MainViewModel : ViewModelBase {
             _ => Device == null || Device.Status == DeviceStatus.Offline);
         CommandDisconnect = new RelayCommand(_ => Disconnect(),
             _ => Device != null && Device.Status != DeviceStatus.Offline);
+        CommandLog = new RelayCommand(_ => OpenLogWindow());
+        CommandClearLog = new RelayCommand(_ => LogEntries.Clear());
         CommandSettings = new RelayCommand(_ => OpenSettingsWindow());
         CommandStart = new RelayCommand(_ => StartMonitoring(),
             _ => Device is { Status: DeviceStatus.OnlineAuth, HeartrateMonitorStarted: false });
@@ -198,6 +201,8 @@ public class MainViewModel : ViewModelBase {
     public RelayCommand CommandConnect { get; }
     public RelayCommand CommandAutoConnect { get; }
     public RelayCommand CommandDisconnect { get; }
+    public RelayCommand CommandLog { get; }
+    public RelayCommand CommandClearLog { get; }
     public RelayCommand CommandSettings { get; }
     public RelayCommand CommandStart { get; }
     public RelayCommand CommandStop { get; }
@@ -210,6 +215,24 @@ public class MainViewModel : ViewModelBase {
         OnPropertyChanged(nameof(EnableFileOutput));
         OnPropertyChanged(nameof(EnableCsvOutput));
         OnPropertyChanged(nameof(EnableOscOutput));
+    }
+
+    private void OpenLogWindow() {
+        if (View == null) return;
+
+        if (_logWindow != null && _logWindow.IsVisible) {
+            _logWindow.Activate();
+            return;
+        }
+
+        _logWindow = new LogWindow(this);
+        _logWindow.Closed += (_, _) => _logWindow = null;
+        _logWindow.Show(View);
+    }
+
+    public void CloseLogWindow() {
+        _logWindow?.Close();
+        _logWindow = null;
     }
 
     private async void OpenSettingsWindow() {
