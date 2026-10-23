@@ -57,11 +57,17 @@
 
         <HeaderedContentControl Header="Heartrate" Margin="0 10 0 0">
             <StackPanel Orientation="Vertical">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            IsVisible="{Binding HasHeartrate}">
                     <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center"
-                               Text="{Binding Device.Heartrate, TargetNullValue=--, FallbackValue=--}" />
-                    <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center">bpm</TextBlock>
+                               Text="{Binding Device.Heartrate}" />
+                    <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center">&#160;bpm</TextBlock>
                 </StackPanel>
+                <TextBlock FontSize="20" Margin="0 11"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontWeight="Medium"
+                           IsVisible="{Binding !HasHeartrate}"
+                           Text="{Binding HeartrateStatusText}" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                     <TextBlock VerticalAlignment="Center">Min: </TextBlock>
                     <TextBlock VerticalAlignment="Center"

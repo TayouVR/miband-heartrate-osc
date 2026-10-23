@@ -4,6 +4,8 @@ using MiBandHR.Core.Configuration;
 namespace MiBandHR.Core.Devices {
     public enum DeviceStatus {
         Offline,
+        Connecting,
+        Authenticating,
         OnlineUnauth,
         OnlineAuth
     }

@@ -15,19 +15,24 @@ namespace MiBandHR.Core.Devices {
         }
 
         public override void Authenticate() {
-            if (Status == MiBandHR.Core.Devices.DeviceStatus.OnlineUnauth) {
+            if (Status == MiBandHR.Core.Devices.DeviceStatus.OnlineUnauth ||
+                Status == MiBandHR.Core.Devices.DeviceStatus.Authenticating ||
+                Status == MiBandHR.Core.Devices.DeviceStatus.Connecting) {
                 Status = MiBandHR.Core.Devices.DeviceStatus.OnlineAuth;
             }
         }
 
         public override void Connect() {
             if (Status == MiBandHR.Core.Devices.DeviceStatus.Offline) {
-                Status = MiBandHR.Core.Devices.DeviceStatus.OnlineUnauth;
+                Status = MiBandHR.Core.Devices.DeviceStatus.Connecting;
+                Status = MiBandHR.Core.Devices.DeviceStatus.Authenticating;
+                Authenticate();
             }
         }
 
         public override void Disconnect() {
             StopHeartrateMonitor();
+            Heartrate = 0;
 
             if (Status != MiBandHR.Core.Devices.DeviceStatus.Offline) {
                 Status = MiBandHR.Core.Devices.DeviceStatus.Offline;
