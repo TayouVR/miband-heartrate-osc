@@ -1,4 +1,5 @@
-using System.ComponentModel;
+using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using MiBandHR.Avalonia.ViewModels;
@@ -8,6 +9,8 @@ namespace MiBandHR.Avalonia.Views;
 
 public partial class MainWindow : Window {
     private readonly MainViewModel _model;
+    private bool _shutdownStarted;
+    private bool _allowClose;
 
     public MainWindow() {
         InitializeComponent();
@@ -57,9 +60,16 @@ public partial class MainWindow : Window {
     }
 
     protected override void OnClosing(WindowClosingEventArgs e) {
-        // Gracefully disconnect the device (mirrors the WPF behaviour).
-        _model.CommandDisconnect.Execute(null);
-        _model.CloseLogWindow();
+        if (!_allowClose) {
+            e.Cancel = true;
+            if (!_shutdownStarted) {
+                _shutdownStarted = true;
+                _ = ShutdownThenCloseAsync();
+            }
+
+            base.OnClosing(e);
+            return;
+        }
 
         // Persist window geometry.
         var config = ConfigurationManager.Instance.CurrentConfig.Window;
@@ -70,5 +80,16 @@ public partial class MainWindow : Window {
         ConfigurationManager.Instance.SaveConfiguration();
 
         base.OnClosing(e);
+    }
+
+    private async Task ShutdownThenCloseAsync() {
+        try {
+            await _model.ShutdownAsync();
+        } catch (Exception exception) {
+            MiBandHR.Core.Bluetooth.BluetoothLog.Error($"Unable to shut down cleanly: {exception.Message}");
+        }
+
+        _allowClose = true;
+        Close();
     }
 }

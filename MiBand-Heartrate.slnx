@@ -9,4 +9,5 @@
   <Project Path="MiBandHR.Core/MiBandHR.Core.csproj" />
   <Project Path="tests/MiBandHR.BluetoothChecks/MiBandHR.BluetoothChecks.csproj" />
   <Project Path="tests/MiBandHR.LifecycleChecks/MiBandHR.LifecycleChecks.csproj" />
+  <Project Path="tests/MiBandHR.GuiChecks/MiBandHR.GuiChecks.csproj" />
 </Solution>

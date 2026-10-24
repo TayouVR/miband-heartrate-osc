@@ -1,17 +1,20 @@
 using System.ComponentModel;
 using System.Net.Sockets;
+using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
 using OscCore;
 
 namespace MiBandHR.Core.Extras;
 
-public class DeviceHeartrateOscOutput {
+public class DeviceHeartrateOscOutput : IAsyncDisposable {
     private readonly Device _device;
 
     private readonly Socket _socket;
 
     private CancellationTokenSource? _cancellationTokenSource;
+    private Task? _sendLoopTask;
+    private bool _disposed;
 
     private static class Addresses {
         private const string ParametersAddress = "/avatar/parameters";
@@ -90,12 +93,27 @@ public class DeviceHeartrateOscOutput {
         _device = device;
 
         _device.PropertyChanged += OnDeviceChanged;
+        if (_device.HeartrateMonitorStarted) OnHeartrateMonitorStarted();
     }
 
-    ~DeviceHeartrateOscOutput() {
+    public async ValueTask DisposeAsync() {
+        if (_disposed) return;
+        _disposed = true;
         _device.PropertyChanged -= OnDeviceChanged;
-        _socket.Close();
         Cancel();
+        if (_sendLoopTask != null) {
+            try {
+                await _sendLoopTask.ConfigureAwait(false);
+            } catch (OperationCanceledException) {
+                // Expected while stopping the OSC heartbeat worker.
+            } catch (Exception exception) {
+                BluetoothLog.Error($"OSC heartbeat worker failed: {exception.Message}");
+            } finally {
+                _socket.Dispose();
+            }
+        } else {
+            _socket.Dispose();
+        }
     }
 
     private void Cancel() {
@@ -105,6 +123,7 @@ public class DeviceHeartrateOscOutput {
     }
 
     private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e) {
+        if (_disposed) return;
         var device = sender as Device;
         if (device == null) return;
 
@@ -163,11 +182,13 @@ public class DeviceHeartrateOscOutput {
     }
 
     private void OnHeartrateMonitorStarted() {
+        if (_disposed || _sendLoopTask is { IsCompleted: false }) return;
         _hrConnected = true;
         SendOSCMessages([Addresses.DeviceConnected, Addresses.HRConnected], _hrConnected);
 
+        _cancellationTokenSource?.Dispose();
         _cancellationTokenSource = new CancellationTokenSource();
-        var _ = SendLoop(_cancellationTokenSource.Token);
+        _sendLoopTask = SendLoop(_cancellationTokenSource.Token);
     }
 
     private void OnHeartrateMonitorStopped() {
@@ -178,19 +199,23 @@ public class DeviceHeartrateOscOutput {
     }
 
     private async Task SendLoop(CancellationToken cancellationToken) {
-        while (true) {
-            if (_device.Heartrate == 0) {
-                await Task.Delay(100, cancellationToken);
-                continue;
-            }
+        try {
+            while (true) {
+                if (_device.Heartrate == 0) {
+                    await Task.Delay(100, cancellationToken);
+                    continue;
+                }
 
-            var span = (int)(60.0f / _device.Heartrate * 1000);
-            await Task.Delay(span, cancellationToken);
-            var _ = Send(span, cancellationToken);
+                var span = (int)(60.0f / _device.Heartrate * 1000);
+                await Task.Delay(span, cancellationToken);
+                await Send(span, cancellationToken);
 
-            if (cancellationToken.IsCancellationRequested) {
-                break;
+                if (cancellationToken.IsCancellationRequested) {
+                    break;
+                }
             }
+        } catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) {
+            // Expected when monitoring stops or the output is disposed.
         }
     }
 

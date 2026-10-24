@@ -3,10 +3,10 @@ using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
 
 namespace MiBandHR.Core.Extras {
-    public class DeviceHeartrateCsvOutput {
+    public class DeviceHeartrateCsvOutput : IDisposable, IAsyncDisposable {
         private readonly Device _device;
-
         private readonly string _filename;
+        private bool _disposed;
 
         public DeviceHeartrateCsvOutput(string filename, Device device) {
             _filename = filename;
@@ -16,8 +16,15 @@ namespace MiBandHR.Core.Extras {
             _device.PropertyChanged += OnDeviceChanged;
         }
 
-        ~DeviceHeartrateCsvOutput() {
+        public void Dispose() {
+            if (_disposed) return;
+            _disposed = true;
             _device.PropertyChanged -= OnDeviceChanged;
+        }
+
+        public ValueTask DisposeAsync() {
+            Dispose();
+            return ValueTask.CompletedTask;
         }
 
         private void OnDeviceChanged(object? sender, PropertyChangedEventArgs e) {
