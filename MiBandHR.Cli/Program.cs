@@ -23,7 +23,27 @@ class Program {
             Console.Error.WriteLine(parseError.Message);
         }
 
-        var app = new App(configFile);
-        await app.RunAsync();
+        using var cancellation = new CancellationTokenSource();
+        ConsoleCancelEventHandler cancelHandler = (_, eventArgs) => {
+            eventArgs.Cancel = true;
+            try {
+                cancellation.Cancel();
+            } catch (AggregateException exception) {
+                Console.Error.WriteLine($"Cancellation callback failed: {exception.Message}");
+            }
+        };
+        Console.CancelKeyPress += cancelHandler;
+
+        try {
+            var app = new App(configFile);
+            await app.RunAsync(cancellation.Token);
+        } catch (OperationCanceledException) when (cancellation.IsCancellationRequested) {
+            Console.WriteLine("Operation cancelled.");
+        } catch (Exception exception) {
+            Console.Error.WriteLine($"CLI failed: {exception.Message}");
+            Environment.ExitCode = 1;
+        } finally {
+            Console.CancelKeyPress -= cancelHandler;
+        }
     }
 }

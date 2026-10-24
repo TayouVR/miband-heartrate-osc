@@ -1,170 +1,160 @@
-using MiBandHR.Core;
+using System.Collections.Concurrent;
 using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
-using Spectre.Console;
-using System.Collections.Concurrent;
 using MiBandHR.Core.Extras;
 
 namespace MiBandHR.Cli;
 
 public class App {
-    private static readonly Guid HeartRateServiceUuid = new("0000180d-0000-1000-8000-00805f9b34fb");
-
     private readonly string? _configPath;
-    private readonly ConcurrentDictionary<string, IBluetoothDevice> _discoveredDevices = new();
-    private Device? _device;
+    private readonly Func<IBluetoothScanner> _scannerFactory;
+    private readonly ICliConsole _console;
+    private readonly Func<IBluetoothDevice, DeviceModel, string?, Device> _deviceFactory;
+    private readonly ICliOutputFactory _outputFactory;
 
     public App(string? configPath) {
         _configPath = configPath;
-    }
-
-    public async Task RunAsync() {
-        ConfigurationManager.Initialize(_configPath);
-        AnsiConsole.Write(new FigletText("MiBand HR").Color(Color.Blue));
-
-        var ble = BluetoothScannerFactory.Create(
+        _scannerFactory = () => BluetoothScannerFactory.Create(
             ConfigurationManager.Instance.CurrentConfig.Device.BluetoothBackend);
-        ble.DeviceFound += async (s, d) => {
-            try {
-                // Filter for devices exposing the standard Heart Rate service (0x180D).
-                var services = await d.GetPrimaryServicesAsync();
-                if (services.Any(srv => srv.Uuid == HeartRateServiceUuid)) {
-                    _discoveredDevices[d.Id] = d;
-                }
-            } catch {
-                // Ignore devices that fail service discovery
-            }
-        };
+        _console = new CliConsole();
+        _deviceFactory = CreateDevice;
+        _outputFactory = new CliOutputFactory();
+    }
 
-        AnsiConsole.MarkupLine("[yellow]Scanning for devices...[/]");
-        var scanTask = ble.ScanForDevicesAsync();
+    internal App(string? configPath, Func<IBluetoothScanner> scannerFactory, ICliConsole console,
+        Func<IBluetoothDevice, DeviceModel, string?, Device> deviceFactory, ICliOutputFactory outputFactory) {
+        _configPath = configPath;
+        _scannerFactory = scannerFactory;
+        _console = console;
+        _deviceFactory = deviceFactory;
+        _outputFactory = outputFactory;
+    }
 
-        IBluetoothDevice? selectedBluetoothDevice = null;
+    public async Task RunAsync(CancellationToken cancellationToken = default) {
+        ConfigurationManager.Initialize(_configPath);
+        _console.ShowBanner();
 
-        await AnsiConsole.Live(CreateDeviceTable())
-            .StartAsync(async ctx => {
-                while (selectedBluetoothDevice == null) {
-                    ctx.UpdateTarget(CreateDeviceTable());
+        IBluetoothScanner? scanner = null;
+        EventHandler<IBluetoothDevice>? deviceFoundHandler = null;
+        Task? scanTask = null;
+        var discoveredDevices = new ConcurrentDictionary<string, IBluetoothDevice>();
+        var discoveryLock = new object();
+        var acceptingDiscoveries = true;
+        var outputs = new List<IAsyncDisposable>();
+        Device? device = null;
+        var monitoringEnded = false;
 
-                    if (Console.KeyAvailable) {
-                        var key = Console.ReadKey(true);
-                        if (key.Key == ConsoleKey.Enter && _discoveredDevices.Count > 0) {
-                            break;
-                        }
-                    }
-
-                    await Task.Delay(500);
-                }
-            });
-
-        if (_discoveredDevices.Count == 0) {
-            AnsiConsole.MarkupLine("[red]No devices found.[/]");
-            return;
-        }
-
-        var deviceList = _discoveredDevices.Values.ToList();
-        var choice = AnsiConsole.Prompt(
-            new SelectionPrompt<IBluetoothDevice>()
-                .Title("Select a [green]Bluetooth Device[/]:")
-                .PageSize(10)
-                .AddChoices(deviceList)
-                .UseConverter(d => Markup.Escape($"{d.Name} ({d.Id})"))
-        );
-
-        selectedBluetoothDevice = choice;
-
-        var modelChoice = AnsiConsole.Prompt(
-            new SelectionPrompt<DeviceModel>()
-                .Title("Select [green]Device Model[/]:")
-                .AddChoices(DeviceModel.Miband2_3, DeviceModel.Miband4_5, DeviceModel.Dummy)
-        );
-
-        switch (modelChoice) {
-            case DeviceModel.Miband2_3:
-                _device = new MiBand2_3_Device(selectedBluetoothDevice);
-                break;
-            case DeviceModel.Miband4_5:
-                var authKey = AnsiConsole.Ask<string>("Enter [green]Authentication Key[/] (32 hex chars):");
-                _device = new MiBand4_Device(selectedBluetoothDevice, authKey);
-                break;
-            case DeviceModel.Dummy:
-                _device = new Dummy_Device();
-                break;
-        }
-
-        if (_device == null) return;
-
-        AnsiConsole.MarkupLine($"[yellow]Connecting to {_device.Name}...[/]");
         try {
-            await _device.ConnectAsync();
-        } catch (Exception e) {
-            AnsiConsole.MarkupLine($"[red]Failed to connect or authenticate: {Markup.Escape(e.Message)}[/]");
-            return;
-        }
+            scanner = _scannerFactory();
+            deviceFoundHandler = (_, discoveredDevice) => {
+                lock (discoveryLock) {
+                    if (!acceptingDiscoveries) return;
+                    discoveredDevices.TryAdd(discoveredDevice.Id, discoveredDevice);
+                }
+            };
+            scanner.DeviceFound += deviceFoundHandler;
 
-        if (_device.Status != DeviceStatus.OnlineAuth) {
-            AnsiConsole.MarkupLine("[red]Failed to connect or authenticate.[/]");
-            return;
-        }
+            _console.WriteInfo("Scanning for devices...");
+            scanTask = scanner.ScanForDevicesAsync(cancellationToken);
+            await _console.ShowScanningAsync(() => discoveredDevices.Values.ToArray(), scanTask, cancellationToken);
+            await scanTask.ConfigureAwait(false);
 
-        AnsiConsole.MarkupLine("[green]Connected and Authenticated![/]");
+            lock (discoveryLock) acceptingDiscoveries = false;
+            DetachDiscoveryHandler(scanner, deviceFoundHandler);
+            deviceFoundHandler = null;
+            cancellationToken.ThrowIfCancellationRequested();
 
-        var continuous = ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode;
-        await _device.StartHeartrateMonitorAsync(continuous);
+            var deviceList = discoveredDevices.Values.ToArray();
+            if (deviceList.Length == 0) {
+                _console.WriteError("No devices found.");
+                return;
+            }
 
-        // Setup outputs as in WPF version
-        DeviceHeartrateFileOutput? fileOutput = null;
-        DeviceHeartrateCsvOutput? csvOutput = null;
-        DeviceHeartrateOscOutput? oscOutput = null;
+            var selectedBluetoothDevice = await _console.SelectBluetoothDeviceAsync(deviceList, cancellationToken);
+            var modelChoice = await _console.SelectDeviceModelAsync(cancellationToken);
+            var authKey = modelChoice == DeviceModel.Miband4_5
+                ? await _console.AskAuthenticationKeyAsync(cancellationToken)
+                : null;
 
-        if (ConfigurationManager.Instance.CurrentConfig.Output.FileEnabled)
-            fileOutput = new DeviceHeartrateFileOutput("heartrate.txt", _device);
-        if (ConfigurationManager.Instance.CurrentConfig.Output.CsvEnabled)
-            csvOutput = new DeviceHeartrateCsvOutput("heartrate.csv", _device);
-        if (ConfigurationManager.Instance.CurrentConfig.Output.OscEnabled)
-            oscOutput = new DeviceHeartrateOscOutput(_device);
+            device = _deviceFactory(selectedBluetoothDevice, modelChoice, authKey);
+            _console.WriteInfo($"Connecting to {device.Name}...");
+            await device.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-        AnsiConsole.MarkupLine("[blue]Monitoring heart rate. Press any key to stop.[/]");
+            _console.WriteInfo("Connected and Authenticated!");
+            await device.StartHeartrateMonitorAsync(
+                ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode, cancellationToken)
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
-        await AnsiConsole.Live(CreateHeartrateDisplay())
-            .StartAsync(async ctx => {
-                while (!Console.KeyAvailable) {
-                    ctx.UpdateTarget(CreateHeartrateDisplay());
-                    await Task.Delay(500);
+            foreach (var output in _outputFactory.CreateOutputs(device, ConfigurationManager.Instance.CurrentConfig)) {
+                outputs.Add(output);
+            }
+
+            await _console.WaitForStopAsync(device, cancellationToken);
+            monitoringEnded = true;
+        } finally {
+            lock (discoveryLock) acceptingDiscoveries = false;
+            DetachDiscoveryHandler(scanner, deviceFoundHandler);
+
+            await TryCleanupAsync("Bluetooth scan", async () => {
+                if (scanTask == null) return;
+                try {
+                    await scanTask.ConfigureAwait(false);
+                } catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) {
+                    // Cancellation was requested by the caller; the native scan is now drained.
                 }
             });
 
-        await _device.DisconnectAsync();
-        AnsiConsole.MarkupLine("[yellow]Disconnected.[/]");
-    }
+            if (device != null) {
+                await TryCleanupAsync("heart rate monitoring", () => device.StopHeartrateMonitorAsync());
+            }
 
-    private Table CreateDeviceTable() {
-        var table = new Table().Border(TableBorder.Rounded);
-        table.AddColumn("Name");
-        table.AddColumn("ID");
+            for (var index = outputs.Count - 1; index >= 0; index--) {
+                var output = outputs[index];
+                await TryCleanupAsync("heart rate output", () => output.DisposeAsync().AsTask());
+            }
 
-        foreach (var device in _discoveredDevices.Values) {
-            table.AddRow(Markup.Escape(device.Name), Markup.Escape(device.Id));
+            if (device != null) {
+                await TryCleanupAsync("device", () => device.DisposeAsync().AsTask());
+            }
         }
 
-        table.Caption("Press [yellow]ENTER[/] to select a device");
-        return table;
+        if (monitoringEnded) _console.WriteInfo("Disconnected.");
     }
 
-    private Panel CreateHeartrateDisplay() {
-        var hr = _device?.Heartrate ?? 0;
-        var min = _device?.MinHeartrate ?? 0;
-        var max = _device?.MaxHeartrate ?? 0;
+    private static Device CreateDevice(IBluetoothDevice bluetoothDevice, DeviceModel model, string? authKey) {
+        return model switch {
+            DeviceModel.Miband2_3 => new MiBand2_3_Device(bluetoothDevice),
+            DeviceModel.Miband4_5 => new MiBand4_Device(bluetoothDevice, authKey ?? string.Empty),
+            DeviceModel.Dummy => new Dummy_Device(),
+            _ => throw new ArgumentOutOfRangeException(nameof(model), model, "Unknown device model.")
+        };
+    }
 
-        var content = new Rows(
-            new Markup($"[bold red]Current Heart Rate:[/] [white]{hr}[/] BPM"),
-            new Markup($"[blue]Min:[/] {min} [blue]Max:[/] {max}")
-        );
+    private async Task TryCleanupAsync(string resource, Func<Task> cleanup) {
+        try {
+            await cleanup().ConfigureAwait(false);
+        } catch (Exception exception) {
+            WriteErrorSafely($"Unable to clean up {resource}: {exception.Message}");
+        }
+    }
 
-        return new Panel(content)
-            .Header("Heart Rate Monitor")
-            .BorderColor(Color.Red)
-            .Padding(1, 1, 1, 1);
+    private void WriteErrorSafely(string message) {
+        try {
+            _console.WriteError(message);
+        } catch {
+            // Logging must not interrupt resource cleanup.
+        }
+    }
+
+    private void DetachDiscoveryHandler(IBluetoothScanner? scanner, EventHandler<IBluetoothDevice>? handler) {
+        if (scanner == null || handler == null) return;
+        try {
+            scanner.DeviceFound -= handler;
+        } catch (Exception exception) {
+            WriteErrorSafely($"Unable to detach Bluetooth discovery handler: {exception.Message}");
+        }
     }
 }
