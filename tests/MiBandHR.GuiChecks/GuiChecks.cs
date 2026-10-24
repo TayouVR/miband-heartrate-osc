@@ -1,4 +1,8 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
 using MiBandHR.Avalonia.ViewModels;
+using MiBandHR.Avalonia.Views;
 using MiBandHR.Core.Bluetooth;
 using MiBandHR.Core.Configuration;
 using MiBandHR.Core.Devices;
@@ -7,6 +11,8 @@ namespace MiBandHR.GuiChecks;
 
 internal static class GuiChecks {
     public static IEnumerable<(string Name, Func<Task> Run)> All() {
+        yield return ("log-window settings default, load legacy TOML, and round-trip", LogWindowConfiguration);
+        yield return ("log window restores on startup and preserves state through shutdown", LogWindowLifecycle);
         yield return ("async command rejects re-entry, observes failure, and cancels", AsyncCommandReentryAndFailure);
         yield return ("GUI retry is serialized and explicit disconnect suppresses retry", RetryAndDisconnect);
         yield return ("replacement waits for prior connect teardown", ReplacementWaitsForTeardown);
@@ -15,6 +21,152 @@ internal static class GuiChecks {
         yield return ("autoconnect accepts one matching discovery and detaches", AutoConnectAcceptsOneMatch);
         yield return ("late discovery cannot attach during disconnect", LateDiscoveryIsIgnored);
     }
+
+    private static Task LogWindowConfiguration() {
+        var originalConfigPath = Path.Combine(AppContext.BaseDirectory, "gui-checks-config.toml");
+        var configPath = Path.Combine(Path.GetTempPath(), $"miband-gui-check-{Guid.NewGuid():N}.toml");
+        try {
+            File.WriteAllText(configPath, "[window]\nwidth = 440\nheight = 220\n");
+            ConfigurationManager.Initialize(configPath);
+            var config = ConfigurationManager.Instance.CurrentConfig.LogWindow;
+            Check.True(!config.IsOpen && config.Width == 520 && config.Height == 400 &&
+                       config.Left == null && config.Top == null,
+                "Missing log-window settings did not use the closed 520x400 defaults.");
+            ConfigurationManager.Instance.SaveConfiguration();
+            ConfigurationManager.Initialize(configPath);
+            config = ConfigurationManager.Instance.CurrentConfig.LogWindow;
+            Check.True(config.Left == null && config.Top == null,
+                "Saving a configuration without a log-window position did not preserve its unset coordinates.");
+
+            File.WriteAllText(configPath,
+                "[window]\nwidth = 440\nheight = 220\n" +
+                "[log_window]\nis_open = true\nwidth = 720\nheight = 540\n");
+            ConfigurationManager.Initialize(configPath);
+            config = ConfigurationManager.Instance.CurrentConfig.LogWindow;
+            Check.True(config.IsOpen && config.Width == 720 && config.Height == 540 &&
+                       config.Left == null && config.Top == null,
+                "Legacy log-window settings without position did not retain defaults.");
+
+            config.IsOpen = true;
+            config.Width = 860;
+            config.Height = 620;
+            config.Left = -1280;
+            config.Top = 64;
+            ConfigurationManager.Instance.SaveConfiguration();
+            ConfigurationManager.Initialize(configPath);
+            config = ConfigurationManager.Instance.CurrentConfig.LogWindow;
+            Check.True(config.IsOpen && config.Width == 860 && config.Height == 620 &&
+                       config.Left == -1280 && config.Top == 64,
+                "Log-window settings did not round-trip through TOML.");
+        } finally {
+            if (File.Exists(configPath)) File.Delete(configPath);
+            ConfigurationManager.Initialize(originalConfigPath);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task LogWindowLifecycle() => Task.Run(() => {
+        var config = ConfigurationManager.Instance.CurrentConfig;
+        config.Device.TryConnectOnStartup = false;
+        config.LogWindow.IsOpen = true;
+        config.LogWindow.Width = 900;
+        config.LogWindow.Height = 650;
+        config.LogWindow.Left = 40;
+        config.LogWindow.Top = 50;
+
+        using var session = HeadlessUnitTestSession.StartNew(typeof(GuiChecksApplication));
+        MainWindow? mainWindow = null;
+        MainViewModel? viewModel = null;
+        LogWindow? restoredWindow = null;
+        session.Dispatch(() => {
+            mainWindow = new MainWindow();
+            viewModel = (MainViewModel)mainWindow.DataContext!;
+            mainWindow.Show();
+            restoredWindow = viewModel.CurrentLogWindow;
+        }, CancellationToken.None).GetAwaiter().GetResult();
+
+        var logWindow = restoredWindow ?? throw new InvalidOperationException(
+            "Saved open state did not restore the log window on startup.");
+        var restoredSize = session.Dispatch(() => (logWindow.Width, logWindow.Height),
+            CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(restoredSize == (900d, 650d),
+            "Saved log-window dimensions were not restored.");
+        var restoredPosition = session.Dispatch(() => logWindow.Position,
+            CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(restoredPosition == new PixelPoint(40, 50),
+            "Saved log-window position was not restored.");
+
+        session.Dispatch(() => viewModel!.CommandLog.Execute(null), CancellationToken.None)
+            .GetAwaiter().GetResult();
+        Check.True(ReferenceEquals(logWindow, viewModel!.CurrentLogWindow),
+            "Opening the log twice created more than one log window.");
+
+        var positionBeforeClose = session.Dispatch(() => {
+            logWindow.Width = 740;
+            logWindow.Height = 500;
+            logWindow.Position = new PixelPoint(70, 80);
+            var position = logWindow.Position;
+            logWindow.Close();
+            return position;
+        }, CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(positionBeforeClose == new PixelPoint(70, 80),
+            $"Headless window did not retain its moved position before close: {positionBeforeClose}.");
+        Check.True(!config.LogWindow.IsOpen && config.LogWindow.Width == 740 && config.LogWindow.Height == 500 &&
+                   config.LogWindow.Left == 70 && config.LogWindow.Top == 80,
+            $"Manual close did not persist the closed state and final geometry: " +
+            $"open={config.LogWindow.IsOpen}, size={config.LogWindow.Width}x{config.LogWindow.Height}, " +
+            $"position={config.LogWindow.Left},{config.LogWindow.Top}.");
+
+        session.Dispatch(() => viewModel!.CommandLog.Execute(null), CancellationToken.None)
+            .GetAwaiter().GetResult();
+        var reopenedWindow = viewModel.CurrentLogWindow ?? throw new InvalidOperationException(
+            "The log window could not be reopened after closing.");
+        var reopenedPosition = session.Dispatch(() => reopenedWindow.Position,
+            CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(reopenedPosition == new PixelPoint(70, 80),
+            "The saved log-window position was not restored after reopening.");
+        session.Dispatch(() => reopenedWindow.Close(), CancellationToken.None).GetAwaiter().GetResult();
+
+        config.LogWindow.Width = 100;
+        config.LogWindow.Height = 100;
+        config.LogWindow.Left = int.MaxValue;
+        config.LogWindow.Top = int.MaxValue;
+        session.Dispatch(() => viewModel!.CommandLog.Execute(null), CancellationToken.None)
+            .GetAwaiter().GetResult();
+        var clampedWindow = viewModel.CurrentLogWindow ?? throw new InvalidOperationException(
+            "The log window could not be opened again after closing.");
+        var clampedSize = session.Dispatch(() => (clampedWindow.Width, clampedWindow.Height),
+            CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(clampedSize == (360d, 240d), "Saved dimensions below the minimum were not clamped.");
+        var startupLocation = session.Dispatch(() => clampedWindow.WindowStartupLocation,
+            CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(startupLocation == WindowStartupLocation.CenterOwner,
+            "An off-screen saved position did not fall back to owner-centered placement.");
+        session.Dispatch(async () => {
+            clampedWindow.Position = new PixelPoint(90, 100);
+            await viewModel!.ShutdownAsync();
+            return true;
+        }, CancellationToken.None).GetAwaiter().GetResult();
+        Check.True(config.LogWindow.IsOpen,
+            "Application shutdown cleared the saved open state instead of restoring it next launch.");
+        Check.True(config.LogWindow.Width == 360 && config.LogWindow.Height == 240,
+            "Shutdown did not save the clamped log-window dimensions.");
+        Check.True(config.LogWindow.Left == 90 && config.LogWindow.Top == 100,
+            "Shutdown did not save the final log-window position.");
+        Check.True(viewModel.CurrentLogWindow == null,
+            "Application shutdown did not close the log window.");
+        var mainWindowClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.Dispatch(async () => {
+            mainWindow!.Closed += (_, _) => mainWindowClosed.TrySetResult();
+            mainWindow.Close();
+            await mainWindowClosed.Task;
+            return true;
+        }, CancellationToken.None).GetAwaiter().GetResult();
+        var mainWindowIsVisible = session.Dispatch(() => mainWindow!.IsVisible, CancellationToken.None)
+            .GetAwaiter().GetResult();
+        Check.True(!mainWindowIsVisible, "The headless owner window did not close after the lifecycle check.");
+    });
 
     private static async Task AsyncCommandReentryAndFailure() {
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

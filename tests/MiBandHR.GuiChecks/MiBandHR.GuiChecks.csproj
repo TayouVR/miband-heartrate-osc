@@ -8,6 +8,9 @@
     <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" Version="12.1.4" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../MiBandHR.Avalonia/MiBandHR.Avalonia.csproj" />
   </ItemGroup>
 </Project>

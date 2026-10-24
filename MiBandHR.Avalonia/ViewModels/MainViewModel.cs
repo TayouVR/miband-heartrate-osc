@@ -336,7 +336,7 @@ public class MainViewModel : ViewModelBase {
     }
 
     private void OpenLogWindow() {
-        if (View == null) return;
+        if (View == null || _isShuttingDown) return;
 
         if (_logWindow != null && _logWindow.IsVisible) {
             _logWindow.Activate();
@@ -344,13 +344,30 @@ public class MainViewModel : ViewModelBase {
         }
 
         _logWindow = new LogWindow(this);
-        _logWindow.Closed += (_, _) => _logWindow = null;
         _logWindow.Show(View);
+        ConfigurationManager.Instance.CurrentConfig.LogWindow.IsOpen = true;
+        ConfigurationManager.Instance.SaveConfiguration();
+    }
+
+    public void RestoreLogWindowIfRequested() {
+        if (ConfigurationManager.Instance.CurrentConfig.LogWindow.IsOpen) OpenLogWindow();
+    }
+
+    internal LogWindow? CurrentLogWindow => _logWindow;
+
+    internal void OnLogWindowClosed(LogWindow window, double width, double height, int left, int top) {
+        var config = ConfigurationManager.Instance.CurrentConfig.LogWindow;
+        config.Width = (int)System.Math.Max(width, window.MinWidth);
+        config.Height = (int)System.Math.Max(height, window.MinHeight);
+        config.Left = left;
+        config.Top = top;
+        if (!_isShuttingDown) config.IsOpen = false;
+        ConfigurationManager.Instance.SaveConfiguration();
+        if (ReferenceEquals(_logWindow, window)) _logWindow = null;
     }
 
     public void CloseLogWindow() {
         _logWindow?.Close();
-        _logWindow = null;
     }
 
     private async void OpenSettingsWindow() {

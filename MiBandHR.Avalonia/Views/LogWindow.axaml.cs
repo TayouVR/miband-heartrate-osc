@@ -1,14 +1,17 @@
 using System.Collections.Specialized;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using MiBandHR.Avalonia.ViewModels;
+using MiBandHR.Core.Configuration;
 
 namespace MiBandHR.Avalonia.Views;
 
 public partial class LogWindow : Window {
     private readonly MainViewModel? _model;
+    private PixelPoint? _positionAtClose;
     private SelectableTextBlock TextControl => LogText!;
     private ScrollViewer ScrollViewerControl => LogScrollViewer!;
     private bool HasSelection => TextControl.SelectionStart != TextControl.SelectionEnd;
@@ -20,6 +23,17 @@ public partial class LogWindow : Window {
     public LogWindow(MainViewModel model) : this() {
         _model = model;
         DataContext = _model;
+
+        var config = ConfigurationManager.Instance.CurrentConfig.LogWindow;
+        Width = System.Math.Max(config.Width, MinWidth);
+        Height = System.Math.Max(config.Height, MinHeight);
+        if (config.Left is { } left && config.Top is { } top) {
+            var position = new PixelPoint(left, top);
+            if (IsOnScreen(position)) {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Position = position;
+            }
+        }
 
         _model.LogEntries.CollectionChanged += LogEntries_CollectionChanged;
         foreach (var entry in _model.LogEntries) {
@@ -151,13 +165,34 @@ public partial class LogWindow : Window {
         ScrollViewerControl.ScrollToEnd();
     }
 
+    private bool IsOnScreen(PixelPoint position) {
+        foreach (var screen in Screens.All) {
+            var area = screen.WorkingArea;
+            if (position.X >= area.X && position.Y >= area.Y &&
+                position.X < area.X + area.Width && position.Y < area.Y + area.Height) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void CloseButton_Click(object? sender, RoutedEventArgs e) {
         Close();
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e) {
+        var position = Position;
+        _positionAtClose = null;
+        base.OnClosing(e);
+        if (!e.Cancel) _positionAtClose = position;
     }
 
     protected override void OnClosed(System.EventArgs e) {
         if (_model != null) {
             _model.LogEntries.CollectionChanged -= LogEntries_CollectionChanged;
+            var position = _positionAtClose ?? Position;
+            _model.OnLogWindowClosed(this, Width, Height, position.X, position.Y);
         }
 
         base.OnClosed(e);

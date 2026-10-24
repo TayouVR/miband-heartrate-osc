@@ -1,3 +1,7 @@
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Themes.Fluent;
+using FluentAvalonia.Styling;
 using MiBandHR.Core.Configuration;
 
 namespace MiBandHR.GuiChecks;
@@ -20,5 +24,12 @@ internal static class Program {
 
         Console.WriteLine($"{checks.Length - failed}/{checks.Length} checks passed");
         return failed == 0 ? 0 : 1;
+    }
+}
+
+internal sealed class GuiChecksApplication : Application {
+    public override void Initialize() {
+        Styles.Add(new FluentTheme());
+        Styles.Add(new FluentAvaloniaTheme());
     }
 }

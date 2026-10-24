@@ -59,6 +59,11 @@ public partial class MainWindow : Window {
         return false;
     }
 
+    protected override void OnOpened(System.EventArgs e) {
+        base.OnOpened(e);
+        _model.RestoreLogWindowIfRequested();
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e) {
         if (!_allowClose) {
             e.Cancel = true;

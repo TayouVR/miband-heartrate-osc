@@ -9,6 +9,7 @@ public class AppConfig {
     public MonitoringConfig Monitoring { get; set; } = new();
     public OutputConfig Output { get; set; } = new();
     public WindowConfig Window { get; set; } = new();
+    public LogWindowConfig LogWindow { get; set; } = new();
     public OscConfig Osc { get; set; } = new();
 }
 
@@ -60,6 +61,14 @@ public class WindowConfig {
     public int Top { get; set; } = -1;
     public int Width { get; set; } = 440;
     public int Height { get; set; } = 220;
+}
+
+public class LogWindowConfig {
+    public bool IsOpen { get; set; }
+    public int? Left { get; set; }
+    public int? Top { get; set; }
+    public int Width { get; set; } = 520;
+    public int Height { get; set; } = 400;
 }
 
 public class OscConfig {
