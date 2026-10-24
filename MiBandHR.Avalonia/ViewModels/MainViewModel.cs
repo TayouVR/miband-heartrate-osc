@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using MiBandHR.Avalonia.Controls;
 using MiBandHR.Avalonia.Views;
@@ -24,6 +25,8 @@ public class MainViewModel : ViewModelBase {
     private bool _isAutoConnecting;
     private bool _guard;
     private LogWindow? _logWindow;
+    private Task? _pendingDeviceDisposalTask;
+    private Task? _connectionTask;
 
     private DeviceHeartrateFileOutput? _fileOutput;
     private DeviceHeartrateCsvOutput? _csvOutput;
@@ -82,9 +85,10 @@ public class MainViewModel : ViewModelBase {
     public Device? Device {
         get;
         set {
+            if (ReferenceEquals(field, value)) return;
             if (field != null) {
                 field.PropertyChanged -= OnDevicePropertyChanged;
-                field.Dispose();
+                _pendingDeviceDisposalTask = DisposeDeviceAsync(field);
             }
 
             field = value;
@@ -95,6 +99,14 @@ public class MainViewModel : ViewModelBase {
 
             DeviceUpdate();
             OnPropertyChanged(nameof(Device));
+        }
+    }
+
+    private async Task DisposeDeviceAsync(Device device) {
+        try {
+            await device.DisposeAsync();
+        } catch (Exception e) {
+            BluetoothLog.Error($"Unable to dispose device {device.Name}: {e.Message}");
         }
     }
 
@@ -297,8 +309,12 @@ public class MainViewModel : ViewModelBase {
         var device = await dialog.ShowDialog<Device?>(View);
 
         if (device != null) {
-            device.Connect();
             Device = device;
+            try {
+                await device.ConnectAsync();
+            } catch (Exception e) {
+                BluetoothLog.Error($"Connection to {device.Name} failed: {e.Message}");
+            }
         }
     }
 
@@ -337,8 +353,8 @@ public class MainViewModel : ViewModelBase {
             // Property changes must happen on the UI thread.
             Dispatcher.UIThread.Post(() => {
                 IsAutoConnecting = false;
-                device.Connect();
                 Device = device;
+                _connectionTask = ConnectDeviceAsync(device);
             });
         }
 
@@ -346,7 +362,7 @@ public class MainViewModel : ViewModelBase {
         _ = _autoConnectBluetooth.ScanForDevicesAsync();
     }
 
-    private void Disconnect() {
+    private async void Disconnect() {
         if (_autoConnectBluetooth != null) {
             _autoConnectBluetooth = null;
         }
@@ -354,7 +370,12 @@ public class MainViewModel : ViewModelBase {
 
         if (Device != null) {
             _guard = false;
-            Device.Disconnect();
+            var device = Device;
+            try {
+                await device.DisconnectAsync();
+            } catch (Exception e) {
+                BluetoothLog.Error($"Disconnect from {device.Name} failed: {e.Message}");
+            }
             Device = null;
         }
 
@@ -362,30 +383,41 @@ public class MainViewModel : ViewModelBase {
         DeviceUpdate();
     }
 
-    private void StartMonitoring() {
-        if (Device == null) return;
+    private async void StartMonitoring() {
+        var device = Device;
+        if (device == null) return;
 
-        Device.StartHeartrateMonitor(ContinuousMode);
+        try {
+            await device.StartHeartrateMonitorAsync(ContinuousMode);
+        } catch (Exception e) {
+            BluetoothLog.Error($"Unable to start heart rate monitoring: {e.Message}");
+            return;
+        }
 
         if (EnableFileOutput) {
-            _fileOutput = new DeviceHeartrateFileOutput("heartrate.txt", Device);
+            _fileOutput = new DeviceHeartrateFileOutput("heartrate.txt", device);
         }
 
         if (EnableCsvOutput) {
-            _csvOutput = new DeviceHeartrateCsvOutput("heartrate.csv", Device);
+            _csvOutput = new DeviceHeartrateCsvOutput("heartrate.csv", device);
         }
 
         if (EnableOscOutput) {
-            _oscOutput = new DeviceHeartrateOscOutput(Device);
+            _oscOutput = new DeviceHeartrateOscOutput(device);
         }
     }
 
-    private void StopMonitoring() {
-        Device?.StopHeartrateMonitor();
-
-        _fileOutput = null;
-        _csvOutput = null;
-        _oscOutput = null;
+    private async void StopMonitoring() {
+        var device = Device;
+        try {
+            if (device != null) await device.StopHeartrateMonitorAsync();
+        } catch (Exception e) {
+            BluetoothLog.Error($"Unable to stop heart rate monitoring: {e.Message}");
+        } finally {
+            _fileOutput = null;
+            _csvOutput = null;
+            _oscOutput = null;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -445,7 +477,7 @@ public class MainViewModel : ViewModelBase {
                 // Connection lost, we try to re-connect
                 if (Device.Status == DeviceStatus.Offline && _guard) {
                     _guard = false;
-                    Device.Connect();
+                    _connectionTask = ConnectDeviceAsync(Device);
                 }
                 else if (Device.Status != DeviceStatus.Offline) {
                     _guard = true;
@@ -461,6 +493,16 @@ public class MainViewModel : ViewModelBase {
         }
         else if (e.PropertyName == nameof(Device.HeartrateMonitorStarted)) {
             Dispatcher.UIThread.Post(RaiseCommandStates);
+        }
+    }
+
+    private async Task ConnectDeviceAsync(Device device) {
+        try {
+            await device.ConnectAsync();
+        } catch (OperationCanceledException) {
+            // A later lifecycle step owns explicit cancellation policy.
+        } catch (Exception e) {
+            BluetoothLog.Error($"Connection to {device.Name} failed: {e.Message}");
         }
     }
 

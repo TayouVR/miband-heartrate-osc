@@ -16,6 +16,8 @@ namespace MiBandHR.Core.Bluetooth.Salar;
 /// </summary>
 public sealed class SalarGattCharacteristic : IGattCharacteristic {
     private readonly IBleCharacteristic _characteristic;
+    private readonly SemaphoreSlim _notificationGate = new(1, 1);
+    private bool _notificationsStarted;
 
     public SalarGattCharacteristic(IBleCharacteristic characteristic) {
         _characteristic = characteristic;
@@ -46,14 +48,36 @@ public sealed class SalarGattCharacteristic : IGattCharacteristic {
     }
 
     public async Task StartNotificationsAsync() {
-        await _characteristic.StartNotificationsAsync(value => {
-            CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
-        });
+        await _notificationGate.WaitAsync().ConfigureAwait(false);
+        try {
+            if (_notificationsStarted) return;
+            try {
+                await _characteristic.StartNotificationsAsync(value => {
+                    CharacteristicValueChanged?.Invoke(this, new GattCharacteristicValueChangedEventArgs(value));
+                }).ConfigureAwait(false);
+                _notificationsStarted = true;
+            } catch {
+                await StopNotificationsCoreAsync().ConfigureAwait(false);
+                throw;
+            }
+        } finally {
+            _notificationGate.Release();
+        }
     }
 
     public async Task StopNotificationsAsync() {
+        await _notificationGate.WaitAsync().ConfigureAwait(false);
         try {
-            await _characteristic.StopNotificationsAsync();
+            await StopNotificationsCoreAsync().ConfigureAwait(false);
+        } finally {
+            _notificationsStarted = false;
+            _notificationGate.Release();
+        }
+    }
+
+    private async Task StopNotificationsCoreAsync() {
+        try {
+            await _characteristic.StopNotificationsAsync().ConfigureAwait(false);
         } catch {
             // Stopping notifications is best-effort; the connection may already be gone.
         }

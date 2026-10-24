@@ -96,14 +96,14 @@ public class App {
         if (_device == null) return;
 
         AnsiConsole.MarkupLine($"[yellow]Connecting to {_device.Name}...[/]");
-        _device.Connect();
-
-        // Wait for auth
-        while (_device.Status != DeviceStatus.OnlineAuth && _device.Status != DeviceStatus.Offline) {
-            await Task.Delay(100);
+        try {
+            await _device.ConnectAsync();
+        } catch (Exception e) {
+            AnsiConsole.MarkupLine($"[red]Failed to connect or authenticate: {Markup.Escape(e.Message)}[/]");
+            return;
         }
 
-        if (_device.Status == DeviceStatus.Offline) {
+        if (_device.Status != DeviceStatus.OnlineAuth) {
             AnsiConsole.MarkupLine("[red]Failed to connect or authenticate.[/]");
             return;
         }
@@ -111,7 +111,7 @@ public class App {
         AnsiConsole.MarkupLine("[green]Connected and Authenticated![/]");
 
         var continuous = ConfigurationManager.Instance.CurrentConfig.Monitoring.ContinuousMode;
-        _device.StartHeartrateMonitor(continuous);
+        await _device.StartHeartrateMonitorAsync(continuous);
 
         // Setup outputs as in WPF version
         DeviceHeartrateFileOutput? fileOutput = null;
@@ -135,7 +135,7 @@ public class App {
                 }
             });
 
-        _device.Disconnect();
+        await _device.DisconnectAsync();
         AnsiConsole.MarkupLine("[yellow]Disconnected.[/]");
     }
 

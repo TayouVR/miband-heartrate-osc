@@ -19,7 +19,11 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
     private readonly Device _device;
-    private bool _isConnected;
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private readonly object _connectionStateLock = new();
+    private volatile bool _isConnected;
+    private int _watcherGeneration;
+    private int _disconnectVersion;
 
     public event EventHandler? Disconnected;
     private IDisposable? _connectedWatcher;
@@ -41,7 +45,7 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     /// is a synchronous property that may be polled from the UI thread, and a
     /// blocking <c>GetAllAsync</c> D-Bus round-trip there would freeze the UI.
     /// The flag is set after <see cref="ConnectAsync"/> succeeds and cleared by
-    /// <see cref="Disconnect"/> or the D-Bus <c>Connected</c> watcher.
+    /// <see cref="DisconnectAsync"/> or the D-Bus <c>Connected</c> watcher.
     /// </summary>
     public bool IsConnected => _isConnected;
 
@@ -49,26 +53,47 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
     /// Connects to the device via BlueZ <b>without pairing</b>, then waits for
     /// BlueZ to report the device connected and its GATT services resolved.
     /// </summary>
-    public async Task ConnectAsync() {
-        if (await BlueZNativeInterop.GetConnectedAsync(_device)) {
-            _isConnected = true;
-            return;
-        }
-
-        BluetoothLog.Info($"Connecting to {Name} ({Id})...");
+    public async Task ConnectAsync(CancellationToken cancellationToken = default) {
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try {
-            await BlueZNativeInterop.ConnectNoPairingAsync(_device, ConnectTimeout);
-            _isConnected = true;
-            _connectedWatcher ??= await _device.WatchPropertiesAsync(value => {
-                if (!value.Changed.Any(x => x.Key == "Connected" && x.Value is bool connected && !connected)) return;
-                _isConnected = false;
-                Disconnected?.Invoke(this, EventArgs.Empty);
-            });
-            BluetoothLog.Success($"Connected to {Name}.");
+            var wasConnected = _isConnected;
+            var disconnectVersion = Volatile.Read(ref _disconnectVersion);
+            if (!wasConnected) BluetoothLog.Info($"Connecting to {Name} ({Id})...");
+            await BlueZNativeInterop.ConnectNoPairingAsync(_device, ConnectTimeout, cancellationToken)
+                .ConfigureAwait(false);
+            if (_connectedWatcher == null) {
+                var generation = Interlocked.Increment(ref _watcherGeneration);
+                _connectedWatcher = await _device.WatchPropertiesAsync(value => {
+                    if (!value.Changed.Any(x => x.Key == "Connected" && x.Value is bool connected && !connected)) return;
+                    bool notify;
+                    lock (_connectionStateLock) {
+                        if (generation != _watcherGeneration) return;
+                        _disconnectVersion++;
+                        notify = _isConnected;
+                        _isConnected = false;
+                    }
+                    if (notify) Disconnected?.Invoke(this, EventArgs.Empty);
+                }).ConfigureAwait(false);
+            }
+            if (!await BlueZNativeInterop.GetReadyAsync(_device).ConfigureAwait(false)) {
+                throw new InvalidOperationException("Device disconnected while establishing the connection.");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_connectionStateLock) {
+                if (disconnectVersion != _disconnectVersion) {
+                    throw new InvalidOperationException("Device disconnected while establishing the connection.");
+                }
+                _isConnected = true;
+            }
+            if (!wasConnected) BluetoothLog.Success($"Connected to {Name}.");
         } catch (Exception e) {
-            _isConnected = false;
-            BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
+            await DisconnectCoreAsync().ConfigureAwait(false);
+            if (e is not OperationCanceledException) {
+                BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
+            }
             throw;
+        } finally {
+            _lifecycleGate.Release();
         }
     }
 
@@ -94,21 +119,26 @@ public sealed class BlueZBluetoothDevice : IBluetoothDevice {
         return result;
     }
 
-    public void Disconnect() {
-        _connectedWatcher?.Dispose();
-        _connectedWatcher = null;
-        _isConnected = false;
+    public async Task DisconnectAsync() {
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try {
+            await DisconnectCoreAsync().ConfigureAwait(false);
+        } finally {
+            _lifecycleGate.Release();
+        }
+    }
 
-        // The BlueZ disconnect is a blocking D-Bus round-trip. Run it on a
-        // background thread so calling Disconnect() from the UI thread never
-        // freezes the window while the D-Bus call is in flight.
-        _ = Task.Run(() => {
-            try {
-                _ = BlueZNativeInterop.Disconnect(_device);
-            } catch {
-                // Disconnect is best-effort; the link may already be down.
-            }
-        });
+    private async Task DisconnectCoreAsync() {
+        lock (_connectionStateLock) {
+            _isConnected = false;
+            _watcherGeneration++;
+        }
+        try {
+            _connectedWatcher?.Dispose();
+        } finally {
+            _connectedWatcher = null;
+            await BlueZNativeInterop.Disconnect(_device).ConfigureAwait(false);
+        }
     }
 }
 #endif

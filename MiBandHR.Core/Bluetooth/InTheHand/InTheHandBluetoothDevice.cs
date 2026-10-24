@@ -7,6 +7,7 @@ namespace MiBandHR.Core.Bluetooth.InTheHand;
 /// platform-neutral <see cref="IBluetoothDevice"/> abstraction.
 /// </summary>
 public sealed class InTheHandBluetoothDevice(BluetoothDevice device) : IBluetoothDevice {
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     public string Id => device.Id;
 
     public string Name => device.Name;
@@ -18,12 +19,25 @@ public sealed class InTheHandBluetoothDevice(BluetoothDevice device) : IBluetoot
     /// On Linux (BlueZ) this also waits for BlueZ to resolve the device's
     /// GATT services before returning.
     /// </summary>
-    public async Task ConnectAsync() {
-        if (device.Gatt.IsConnected) {
-            return;
+    public async Task ConnectAsync(CancellationToken cancellationToken = default) {
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (device.Gatt.IsConnected) return;
+            try {
+                await device.Gatt.ConnectAsync().ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+            } catch {
+                try {
+                    device.Gatt.Disconnect();
+                } catch {
+                    // Preserve the connection failure or cancellation.
+                }
+                throw;
+            }
+        } finally {
+            _lifecycleGate.Release();
         }
-
-        await device.Gatt.ConnectAsync();
     }
 
     public async Task<IGattService?> GetPrimaryServiceAsync(Guid uuid) {
@@ -38,7 +52,14 @@ public sealed class InTheHandBluetoothDevice(BluetoothDevice device) : IBluetoot
         return services.Select(s => (IGattService)new InTheHandGattService(s)).ToList();
     }
 
-    public void Disconnect() => device.Gatt.Disconnect();
+    public async Task DisconnectAsync() {
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try {
+            device.Gatt.Disconnect();
+        } finally {
+            _lifecycleGate.Release();
+        }
+    }
     // TODO: implement disconnect detection and raise Disconnected for this backend.
 #pragma warning disable CS0067
     public event EventHandler? Disconnected;

@@ -17,28 +17,22 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid Margin="10" RowDefinitions="*, Auto">
+    <Grid Margin="4" RowDefinitions="*, Auto">
         <Border Grid.Row="0"
                 Background="#1E1E1E"
                 CornerRadius="4"
                 ClipToBounds="True">
-            <ListBox x:Name="LogList"
-                     ItemsSource="{Binding LogEntries}"
-                     Background="Transparent"
-                     BorderThickness="0">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:LogEntryViewModel">
-                        <TextBlock Text="{Binding Text}"
-                                   Foreground="{Binding Foreground}"
-                                   FontFamily="Consolas, Menlo, Monospace"
-                                   FontSize="12"
-                                   TextWrapping="Wrap" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+            <ScrollViewer x:Name="LogScrollViewer"
+                          Padding="4"
+                          HorizontalScrollBarVisibility="Disabled">
+                <SelectableTextBlock x:Name="LogText"
+                                     FontFamily="Consolas, Menlo, Monospace"
+                                     FontSize="12"
+                                     TextWrapping="Wrap" />
+            </ScrollViewer>
         </Border>
 
-        <Grid Grid.Row="1" Margin="0 10 0 0" ColumnDefinitions="Auto, *, Auto">
+        <Grid Grid.Row="1" Margin="0 4 0 0" ColumnDefinitions="Auto, *, Auto">
             <Button Grid.Column="0"
                     Content="Clear"
                     Padding="15 5"

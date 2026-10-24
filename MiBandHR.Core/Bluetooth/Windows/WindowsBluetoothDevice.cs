@@ -14,6 +14,7 @@ namespace MiBandHR.Core.Bluetooth.Windows;
 public sealed class WindowsBluetoothDevice : IBluetoothDevice
 {
     private readonly string _deviceId;
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private BluetoothLEDevice? _device;
 
     public WindowsBluetoothDevice(string deviceId, string name)
@@ -33,22 +34,36 @@ public sealed class WindowsBluetoothDevice : IBluetoothDevice
     public event EventHandler? Disconnected;
 #pragma warning restore CS0067
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        if (IsConnected)
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            return;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsConnected) return;
+            _device?.Dispose();
+            _device = null;
 
-        BluetoothLog.Info($"Connecting to {Name} ({Id})...");
-        var device = await BluetoothLEDevice.FromIdAsync(_deviceId);
-        if (device == null)
+            BluetoothLog.Info($"Connecting to {Name} ({Id})...");
+            var device = await BluetoothLEDevice.FromIdAsync(_deviceId).AsTask().ConfigureAwait(false);
+            if (device == null)
+            {
+                throw new InvalidOperationException("Could not open the Bluetooth LE device.");
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                device.Dispose();
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            _device = device;
+            BluetoothLog.Success($"Connected to {Name}.");
+        }
+        finally
         {
-            throw new InvalidOperationException("Could not open the Bluetooth LE device.");
+            _lifecycleGate.Release();
         }
-
-        _device = device;
-        BluetoothLog.Success($"Connected to {Name}.");
     }
 
     public async Task<IGattService?> GetPrimaryServiceAsync(Guid uuid)
@@ -80,10 +95,19 @@ public sealed class WindowsBluetoothDevice : IBluetoothDevice
         return services;
     }
 
-    public void Disconnect()
+    public async Task DisconnectAsync()
     {
-        _device?.Dispose();
-        _device = null;
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var device = _device;
+            _device = null;
+            device?.Dispose();
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
     }
 }
 

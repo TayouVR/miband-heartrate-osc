@@ -13,12 +13,14 @@ namespace MiBandHR.Core.Bluetooth.Windows;
 public sealed class WindowsGattCharacteristic : IGattCharacteristic
 {
     private readonly GattCharacteristic _characteristic;
+    private readonly SemaphoreSlim _notificationGate = new(1, 1);
+    private readonly object _subscriptionLock = new();
+    private bool _subscribed;
+    private bool _notificationsStarted;
 
     public WindowsGattCharacteristic(GattCharacteristic characteristic)
     {
         _characteristic = characteristic;
-        // WinRT fires the same event as our abstraction; forward it directly.
-        _characteristic.ValueChanged += OnValueChanged;
     }
 
     public Guid Uuid => _characteristic.Uuid;
@@ -26,12 +28,26 @@ public sealed class WindowsGattCharacteristic : IGattCharacteristic
     public event EventHandler<GattCharacteristicValueChangedEventArgs>? CharacteristicValueChanged;
 
     /// <summary>
-    /// WinRT wires notifications to <c>ValueChanged</c> via the CCCD write, so
-    /// there is nothing separate to subscribe to here.
+    /// Wires up the local WinRT value-changed event handler.
     /// </summary>
     public void SubscribeToValueChanges()
     {
-        // Already subscribed in the constructor.
+        lock (_subscriptionLock)
+        {
+            if (_subscribed) return;
+            _characteristic.ValueChanged += OnValueChanged;
+            _subscribed = true;
+        }
+    }
+
+    private void UnsubscribeFromValueChanges()
+    {
+        lock (_subscriptionLock)
+        {
+            if (!_subscribed) return;
+            _characteristic.ValueChanged -= OnValueChanged;
+            _subscribed = false;
+        }
     }
 
     public async Task WriteValueWithResponseAsync(byte[] data)
@@ -50,14 +66,56 @@ public sealed class WindowsGattCharacteristic : IGattCharacteristic
 
     public async Task StartNotificationsAsync()
     {
-        await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
-            GattClientCharacteristicConfigurationDescriptorValue.Notify);
+        await _notificationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_notificationsStarted) return;
+            SubscribeToValueChanges();
+            try
+            {
+                var status = await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                    GattClientCharacteristicConfigurationDescriptorValue.Notify).AsTask().ConfigureAwait(false);
+                if (status != GattCommunicationStatus.Success)
+                {
+                    throw new InvalidOperationException($"Could not enable notifications: {status}.");
+                }
+                _notificationsStarted = true;
+            }
+            catch
+            {
+                try
+                {
+                    await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                        GattClientCharacteristicConfigurationDescriptorValue.None).AsTask().ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Preserve the startup error if native cleanup also fails.
+                }
+                UnsubscribeFromValueChanges();
+                throw;
+            }
+        }
+        finally
+        {
+            _notificationGate.Release();
+        }
     }
 
     public async Task StopNotificationsAsync()
     {
-        await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
-            GattClientCharacteristicConfigurationDescriptorValue.None);
+        await _notificationGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(
+                GattClientCharacteristicConfigurationDescriptorValue.None).AsTask().ConfigureAwait(false);
+        }
+        finally
+        {
+            UnsubscribeFromValueChanges();
+            _notificationsStarted = false;
+            _notificationGate.Release();
+        }
     }
 
     private void OnValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)

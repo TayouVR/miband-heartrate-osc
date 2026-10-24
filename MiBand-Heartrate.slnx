@@ -7,4 +7,6 @@
   <Project Path="MiBandHR.Avalonia/MiBandHR.Avalonia.csproj" />
   <Project Path="MiBandHR.Cli/MiBandHR.Cli.csproj" />
   <Project Path="MiBandHR.Core/MiBandHR.Core.csproj" />
+  <Project Path="tests/MiBandHR.BluetoothChecks/MiBandHR.BluetoothChecks.csproj" />
+  <Project Path="tests/MiBandHR.LifecycleChecks/MiBandHR.LifecycleChecks.csproj" />
 </Solution>

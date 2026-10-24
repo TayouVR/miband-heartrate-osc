@@ -21,6 +21,7 @@ namespace MiBandHR.Core.Bluetooth.Salar;
 public sealed class SalarBluetoothDevice(IBleAdapter adapter, string address, string name) : IBluetoothDevice {
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private IBleDevice? _device;
 
     // TODO: implement disconnect detection and raise Disconnected for this backend.
@@ -34,21 +35,30 @@ public sealed class SalarBluetoothDevice(IBleAdapter adapter, string address, st
 
     public bool IsConnected => _device?.State == BleDeviceState.Connected;
 
-    public async Task ConnectAsync() {
-        if (IsConnected) {
-            return;
-        }
-
-        BluetoothLog.Info($"Connecting to {Name} ({address})...");
+    public async Task ConnectAsync(CancellationToken cancellationToken = default) {
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsConnected) return;
+            await DisconnectCoreAsync().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            BluetoothLog.Info($"Connecting to {Name} ({address})...");
             _device = await adapter.ConnectAsync(address, new ConnectionConfig {
                 AutoConnect = false,
                 ConnectionTimeout = ConnectTimeout
-            });
+            }).ConfigureAwait(false);
+            if (cancellationToken.IsCancellationRequested) {
+                await DisconnectCoreAsync().ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
             BluetoothLog.Success($"Connected to {Name}.");
         } catch (Exception e) {
-            BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
+            if (e is not OperationCanceledException) {
+                BluetoothLog.Error($"Connection to {Name} failed: {e.Message}");
+            }
             throw;
+        } finally {
+            _lifecycleGate.Release();
         }
     }
 
@@ -71,19 +81,25 @@ public sealed class SalarBluetoothDevice(IBleAdapter adapter, string address, st
         return result;
     }
 
-    public void Disconnect() {
-        var device = _device;
-        if (device == null) {
-            return;
+    public async Task DisconnectAsync() {
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try {
+            await DisconnectCoreAsync().ConfigureAwait(false);
+        } finally {
+            _lifecycleGate.Release();
         }
+    }
 
-        _ = Task.Run(async () => {
-            try {
-                await device.DisconnectAsync();
-                device.Dispose();
-            } catch {
-                // Disconnect is best-effort; the link may already be down.
-            }
-        });
+    private async Task DisconnectCoreAsync() {
+        var device = _device;
+        _device = null;
+        if (device == null) return;
+        try {
+            await device.DisconnectAsync().ConfigureAwait(false);
+        } catch {
+            // Disconnect is best-effort; the link may already be down.
+        } finally {
+            device.Dispose();
+        }
     }
 }

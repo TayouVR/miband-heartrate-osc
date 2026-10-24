@@ -18,7 +18,7 @@ public interface IBluetoothDevice {
     /// Must be called before resolving services/characteristics on platforms
     /// that do not connect implicitly (e.g. Linux/BlueZ).
     /// </summary>
-    Task ConnectAsync();
+    Task ConnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Resolves a primary GATT service by UUID (connecting first if needed).</summary>
     Task<IGattService?> GetPrimaryServiceAsync(Guid uuid);
@@ -26,9 +26,9 @@ public interface IBluetoothDevice {
     /// <summary>Resolves all primary GATT services of the device.</summary>
     Task<IReadOnlyList<IGattService>> GetPrimaryServicesAsync();
 
-    /// <summary>Terminates the GATT connection.</summary>
-    void Disconnect();
+    /// <summary>Terminates the GATT connection and awaits native teardown.</summary>
+    Task DisconnectAsync();
 
-    /// <summary>Raised when the BLE link drops unexpectedly (not on an explicit <see cref="Disconnect"/>).</summary>
+    /// <summary>Raised when the BLE link drops unexpectedly (not on an explicit <see cref="DisconnectAsync"/>).</summary>
     event EventHandler? Disconnected;
 }

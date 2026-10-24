@@ -18,7 +18,12 @@ internal static class BlueZNativeInterop {
 
     /// <summary>True when the BlueZ device reports Connected = true.</summary>
     public static async Task<bool> GetConnectedAsync(Device nativeDevice) {
-        return (await nativeDevice.GetAllAsync()).Connected;
+        return (await nativeDevice.GetAllAsync().ConfigureAwait(false)).Connected;
+    }
+
+    public static async Task<bool> GetReadyAsync(Device nativeDevice) {
+        var properties = await nativeDevice.GetAllAsync().ConfigureAwait(false);
+        return properties.Connected && properties.ServicesResolved;
     }
 
     /// <summary>
@@ -31,16 +36,25 @@ internal static class BlueZNativeInterop {
     /// encrypted link lazily when <c>StartNotify</c> is called on an
     /// <c>encrypt-notify</c> characteristic.
     /// </summary>
-    public static async Task ConnectNoPairingAsync(Device nativeDevice, TimeSpan timeout) {
-        await nativeDevice.ConnectAsync();
-        await WaitForDevicePropertyAsync(nativeDevice, p => p.Connected, "Connected", timeout);
-        await WaitForDevicePropertyAsync(nativeDevice, p => p.ServicesResolved, "ServicesResolved", timeout);
+    public static async Task ConnectNoPairingAsync(Device nativeDevice, TimeSpan timeout,
+        CancellationToken cancellationToken = default) {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!await GetConnectedAsync(nativeDevice).ConfigureAwait(false)) {
+            cancellationToken.ThrowIfCancellationRequested();
+            // The native operation cannot be cancelled. Keep owning it until it settles.
+            await nativeDevice.ConnectAsync().ConfigureAwait(false);
+        }
+
+        await WaitForDevicePropertyAsync(nativeDevice, p => p.Connected, "Connected", timeout, cancellationToken)
+            .ConfigureAwait(false);
+        await WaitForDevicePropertyAsync(nativeDevice, p => p.Connected && p.ServicesResolved, "ServicesResolved",
+            timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Disconnects the device (best effort).</summary>
     public static async Task Disconnect(Device nativeDevice) {
         try {
-            await nativeDevice.DisconnectAsync();
+            await nativeDevice.DisconnectAsync().ConfigureAwait(false);
         } catch {
             // Device may already be gone.
         }
@@ -105,13 +119,17 @@ internal static class BlueZNativeInterop {
     // ------------------------------------------------------------------
 
     private static async Task WaitForDevicePropertyAsync(Device device, Func<Device1Properties, bool> predicate,
-        string name, TimeSpan timeout) {
+        string name, TimeSpan timeout, CancellationToken cancellationToken) {
         var deadline = DateTimeOffset.Now + timeout;
         while (DateTimeOffset.Now < deadline) {
-            if (predicate(await device.GetAllAsync())) return;
-            await Task.Delay(100);
+            cancellationToken.ThrowIfCancellationRequested();
+            var properties = await device.GetAllAsync().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (predicate(properties)) return;
+            await Task.Delay(100, cancellationToken).ConfigureAwait(false);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         throw new TimeoutException($"Timed out waiting for {name}.");
     }
 }

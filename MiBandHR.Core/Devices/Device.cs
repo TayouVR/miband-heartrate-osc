@@ -20,7 +20,7 @@ namespace MiBandHR.Core.Devices {
         [Description("Mi Band 4/5")] Miband4_5
     }
 
-    public abstract class Device : INotifyPropertyChanged {
+    public abstract class Device : INotifyPropertyChanged, IAsyncDisposable {
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected Device() {
@@ -117,16 +117,17 @@ namespace MiBandHR.Core.Devices {
 
         // --------------------------------------
 
-        public abstract void Dispose();
+        public abstract Task ConnectAsync(CancellationToken cancellationToken = default);
 
-        public abstract void Connect();
+        public abstract Task AuthenticateAsync(CancellationToken cancellationToken = default);
 
-        public abstract void Disconnect();
+        public abstract Task DisconnectAsync(CancellationToken cancellationToken = default);
 
-        public abstract void Authenticate();
+        public abstract Task StartHeartrateMonitorAsync(bool continuous = false,
+            CancellationToken cancellationToken = default);
 
-        public abstract void StartHeartrateMonitor(bool continuous = false);
+        public abstract Task StopHeartrateMonitorAsync(CancellationToken cancellationToken = default);
 
-        public abstract void StopHeartrateMonitor();
+        public abstract ValueTask DisposeAsync();
     }
 }
