@@ -11,16 +11,15 @@
         Icon="/Assets/icon.ico"
         Width="440" Height="160"
         MinWidth="400" MinHeight="160"
-        SizeToContent="Height"
-        CanResize="False"
+        CanResize="True"
         Title="Heartrate Monitor">
 
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <StackPanel Margin="10">
-        <Grid VerticalAlignment="Top" ColumnDefinitions="*, Auto">
+    <Grid Margin="10" RowDefinitions="Auto, *">
+        <Grid Grid.Row="0" VerticalAlignment="Top" ColumnDefinitions="*, Auto">
             <TextBlock Grid.Column="0"
                        VerticalAlignment="Center"
                        Text="{Binding StatusText}" />
@@ -60,36 +59,34 @@
             </StackPanel>
         </Grid>
 
-        <ContentControl Margin="0 10 0 0" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch" HorizontalAlignment="Stretch">
-            <Panel>
-                <controls:SparklineControl Points="{Binding HeartrateHistory}"
-                                           Opacity="0.45"
-                                           VerticalAlignment="Stretch"
-                                           HorizontalAlignment="Stretch" />
+        <Panel Grid.Row="1" Margin="0 10 0 0">
+            <controls:SparklineControl Points="{Binding HeartrateHistory}"
+                                       Opacity="0.45"
+                                       VerticalAlignment="Stretch"
+                                       HorizontalAlignment="Stretch" />
 
-                <StackPanel Orientation="Vertical">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
-                                IsVisible="{Binding HasHeartrate}">
-                        <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center"
-                                   Text="{Binding Device.Heartrate}" />
-                        <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center">&#160;bpm</TextBlock>
-                    </StackPanel>
-                    <TextBlock FontSize="20" Margin="0 11"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FontWeight="Medium"
-                               IsVisible="{Binding !HasHeartrate}"
-                               Text="{Binding HeartrateStatusText}" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock VerticalAlignment="Center">Min: </TextBlock>
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
-                        <TextBlock VerticalAlignment="Center"> bpm&#160;&#160;Max: </TextBlock>
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
-                        <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
-                    </StackPanel>
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            IsVisible="{Binding HasHeartrate}">
+                    <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center"
+                               Text="{Binding Device.Heartrate}" />
+                    <TextBlock FontSize="32" Margin="0 5" VerticalAlignment="Center">&#160;bpm</TextBlock>
                 </StackPanel>
-            </Panel>
-        </ContentControl>
-    </StackPanel>
+                <TextBlock FontSize="20" Margin="0 11"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontWeight="Medium"
+                           IsVisible="{Binding !HasHeartrate}"
+                           Text="{Binding HeartrateStatusText}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center">Min: </TextBlock>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Device.MinHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                    <TextBlock VerticalAlignment="Center"> bpm&#160;&#160;Max: </TextBlock>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Device.MaxHeartrate, TargetNullValue=--, FallbackValue=--}" />
+                    <TextBlock VerticalAlignment="Center"> bpm</TextBlock>
+                </StackPanel>
+            </StackPanel>
+        </Panel>
+    </Grid>
 </Window>
