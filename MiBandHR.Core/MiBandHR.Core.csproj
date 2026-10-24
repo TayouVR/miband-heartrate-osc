@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework Condition="'$(OS)' == 'Windows_NT'">net10.0-windows10.0.20348.0</TargetFramework>
+        <TargetFramework Condition="'$(OS)' != 'Windows_NT'">net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EnableWindowsTargeting Condition="'$(OS)' != 'Windows_NT'">true</EnableWindowsTargeting>
+        <DefineConstants Condition="$(TargetFramework.Contains('-windows'))">$(DefineConstants);WINDOWS</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <SelfContained>true</SelfContained>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+<!--        <PublishAot>true</PublishAot>-->
+    </PropertyGroup>
+
+    <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
+        <Capabilities Include="bluetooth" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="InTheHand.BluetoothLE" Version="4.0.45" />
+      <PackageReference Include="Linux.Bluetooth" Version="5.67.1" Condition="!$(TargetFramework.Contains('-windows'))" />
+      <PackageReference Include="OscCore" Version="1.0.5" />
+      <PackageReference Include="Salar.BluetoothLE" Version="1.2.0" />
+      <PackageReference Include="Tomlyn" Version="2.10.1" />
+    </ItemGroup>
+
+</Project>

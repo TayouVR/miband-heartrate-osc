@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MiBandHR.Avalonia.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="MiBandHR.Avalonia.Views.AuthenticationKeyWindow"
+        x:DataType="vm:AuthenticationKeyViewModel"
+        Icon="/Assets/icon.ico"
+        SizeToContent="WidthAndHeight"
+        CanResize="False"
+        Title="Heartrate Monitor - Authentication">
+
+    <Design.DataContext>
+        <vm:AuthenticationKeyViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="10" MinWidth="400">
+        <Grid ColumnDefinitions="150, *">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center">Enter your auth. key</TextBlock>
+            <TextBox Grid.Column="1"
+                     VerticalContentAlignment="Center"
+                     Text="{Binding Key}"
+                     PlaceholderText="0123456789abcdef0123456789abcdef" />
+        </Grid>
+
+        <TextBlock Margin="0 4 0 0"
+                   Foreground="{DynamicResource SystemControlErrorTextForegroundBrush}"
+                   Text="{Binding ErrorText}"
+                   IsVisible="{Binding HasError}" />
+
+        <Separator Margin="0 10" />
+
+        <TextBlock TextWrapping="Wrap" HorizontalAlignment="Left">
+            This device needs an authentication key for being used.<LineBreak />
+            If you don't know how to obtain it, check the website
+            <Run Text="freemyband.com" />: http://www.freemyband.com
+        </TextBlock>
+
+        <Separator Margin="0 10 0 0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button Content="Cancel" Padding="10 5" Margin="5 10 5 5"
+                    Command="{Binding CommandCancel}" />
+            <Button Content="Ok" Padding="10 5" Margin="5 10 5 5"
+                    Command="{Binding CommandOk}" />
+        </StackPanel>
+    </StackPanel>
+</Window>

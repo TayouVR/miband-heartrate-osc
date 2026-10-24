@@ -1,0 +1,14 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="MiBandHR.Avalonia/MiBandHR.Avalonia.csproj" />
+  <Project Path="MiBandHR.Cli/MiBandHR.Cli.csproj" />
+  <Project Path="MiBandHR.Core/MiBandHR.Core.csproj" />
+  <Project Path="tests/MiBandHR.BluetoothChecks/MiBandHR.BluetoothChecks.csproj" />
+  <Project Path="tests/MiBandHR.CliChecks/MiBandHR.CliChecks.csproj" />
+  <Project Path="tests/MiBandHR.LifecycleChecks/MiBandHR.LifecycleChecks.csproj" />
+  <Project Path="tests/MiBandHR.GuiChecks/MiBandHR.GuiChecks.csproj" />
+</Solution>

@@ -1,0 +1,72 @@
+[
+  {
+    "pname": "InTheHand.BluetoothLE",
+    "version": "4.0.45",
+    "hash": "sha256-UGTDY/pVtaRGy0ultf/3MSOx5QCusf9ox1baaVF/oiI="
+  },
+  {
+    "pname": "Linux.Bluetooth",
+    "version": "5.67.1",
+    "hash": "sha256-Zu5hs03GAfHi+PY+T0ZHZhtfr5keofNeixR9Md54lQ0="
+  },
+  {
+    "pname": "Microsoft.Extensions.DependencyInjection.Abstractions",
+    "version": "8.0.2",
+    "hash": "sha256-UfLfEQAkXxDaVPC7foE/J3FVEXd31Pu6uQIhTic3JgY="
+  },
+  {
+    "pname": "Microsoft.NETCore.Platforms",
+    "version": "1.1.0",
+    "hash": "sha256-FeM40ktcObQJk4nMYShB61H/E8B7tIKfl9ObJ0IOcCM="
+  },
+  {
+    "pname": "NETStandard.Library",
+    "version": "1.6.1",
+    "hash": "sha256-iNan1ix7RtncGWC9AjAZ2sk70DoxOsmEOgQ10fXm4Pw="
+  },
+  {
+    "pname": "OscCore",
+    "version": "1.0.5",
+    "hash": "sha256-ZmRCfTjS6/hmGy5+jAIWhu8WTiL79TS5RjqovFm1nho="
+  },
+  {
+    "pname": "Salar.BluetoothLE",
+    "version": "1.2.0",
+    "hash": "sha256-f8UFa5FGe2Q+tlV9Hd5yjPU1GH2JH/pcSUOpSD24RIU="
+  },
+  {
+    "pname": "Spectre.Console",
+    "version": "0.57.2",
+    "hash": "sha256-ORLa6NVkaski0XYP4Mg+BtxO7kuIZNOOGFG1uJHrwww="
+  },
+  {
+    "pname": "Spectre.Console.Ansi",
+    "version": "0.57.2",
+    "hash": "sha256-pL8hSDbW0Cy9jpr9HKsfUPzY1WvWP7l0VndwpxHWjCw="
+  },
+  {
+    "pname": "System.CommandLine",
+    "version": "2.0.12",
+    "hash": "sha256-SUCaKOYrCvfw3JjQcJhyXryXaa8ao7BmctGfYoR7zuk="
+  },
+  {
+    "pname": "System.Reactive",
+    "version": "6.1.0",
+    "hash": "sha256-zACYoZmKxHo0qKY8FOVa7jIsw7dN7WjdXdRRV95qY2Y="
+  },
+  {
+    "pname": "Tmds.DBus",
+    "version": "0.20.0",
+    "hash": "sha256-xKKZLlv0X6bWenTvbxNp2J8N8XTAzomSlH2GnWCQ4Bg="
+  },
+  {
+    "pname": "Tmds.DBus",
+    "version": "0.95.1",
+    "hash": "sha256-dSyAuZJkiI9219NbD44w3OrGB5nIjPz3Vyd1C6kVQYE="
+  },
+  {
+    "pname": "Tomlyn",
+    "version": "2.10.1",
+    "hash": "sha256-Dcceh+BjppBtDoSLydw7K8v5cEI9HGEIy2OEsosW2kM="
+  }
+]

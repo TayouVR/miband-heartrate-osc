@@ -1,6 +1,6 @@
 # Mi Band Heartrate
 
-Windows10でMi Bandデバイスで心拍数を取得します。
+Windows・Linux・macOS で Mi Band デバイスの心拍数を取得します。
 
 ![miband heartrate](https://github.com/Eryux/miband-heartrate/raw/master/mibandheatrate-screen.png "Mi Band Heartrate screen")
 ![miband heartrate newer version](https://github.com/TayouVR/miband-heartrate-osc/assets/31988415/9f7684bb-03ce-4dff-960e-78cacb0a31b4)
@@ -15,9 +15,15 @@ Windows10でMi Bandデバイスで心拍数を取得します。
 
 ### 動作環境
 
-* .NET Framework 4.8 ([download](https://dotnet.microsoft.com/download/dotnet-framework/net48))
-* Windows 10 1703+ (Creators Update)
-* Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+* .NET 10 SDK/runtime ([download](https://dotnet.microsoft.com/download))
+* Windows 10 1703+, Linux (BlueZ + デスクトップ環境) または macOS
+* Bluetooth 4.0/4.2 BLE に対応した Bluetooth アダプタ
+
+実行:
+
+```bash
+dotnet run --project MiBandHR.Avalonia/MiBandHR.Avalonia.csproj
+```
 
 
 ### 使い方
@@ -30,7 +36,7 @@ Windows10でMi Bandデバイスで心拍数を取得します。
 
 * Mi Band 2/3をPCにペアリング・接続してください
 
-* `MiBand-Heartrate.exe`を起動してください
+* `MiBandHR.Avalonia`を起動してください
 
 * `Manual Connect`ボタンを押してください
 
@@ -48,7 +54,7 @@ Windows10でMi Bandデバイスで心拍数を取得します。
 
 * Mi Band 4/5をPCにペアリング・接続してください
 
-* `MiBand-Heartrate.exe`を起動してください
+* `MiBandHR.Avalonia`を起動してください
 
 * `Manual Connect`ボタンを押してください
 
@@ -65,7 +71,7 @@ Windows10でMi Bandデバイスで心拍数を取得します。
 
 ### 自動接続
 
-`MiBand-Heartrate-2.exe`と同じ階層にある`MiBand-Heartrate-2.exe.config`を設定することで自動接続をすることができるようになります。
+TOML設定ファイル（`config.toml`、初回実行時に作成されます）の`[Device]`セクションを設定することで自動接続をすることができるようになります。
 
 自動接続を有効にした場合、`Manual Connect`ボタンが`Auto Connect`ボタンに変わります。
 
@@ -77,46 +83,12 @@ Windows10でMi Bandデバイスで心拍数を取得します。
 |autoConnectDeviceAuthkey|32文字の認証キー|例:`0123456789abcdef0123456789abcdef`|
 
 設定例
-``` xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-    <configSections>
-        <sectionGroup name="userSettings" type="System.Configuration.UserSettingsGroup, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-            <section name="MiBand_Heartrate.Properties.Settings" type="System.Configuration.ClientSettingsSection, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" allowExeDefinition="MachineToLocalUser" requirePermission="false" />
-        </sectionGroup>
-    </configSections>
-    <userSettings>
-        <MiBand_Heartrate.Properties.Settings>
-            <setting name="useAutoConnect" serializeAs="String">
-                <value>False</value>
-            </setting>
-            <setting name="autoConnectDeviceVersion" serializeAs="String">
-                <value>3</value>
-            </setting>
-            <setting name="autoConnectDeviceName" serializeAs="String">
-                <value>Mi Band 3</value>
-            </setting>
-            <setting name="autoConnectDeviceAuthKey" serializeAs="String">
-                <value>0123456789abcdef0123456789abcdef</value>
-            </setting>
-            <setting name="continuousMode" serializeAs="String">
-                <value>True</value>
-            </setting>
-            <setting name="fileOutput" serializeAs="String">
-                <value>False</value>
-            </setting>
-            <setting name="csvOutput" serializeAs="String">
-                <value>False</value>
-            </setting>
-            <setting name="oscOutput" serializeAs="String">
-                <value>True</value>
-            </setting>
-            <setting name="tryConnectOnStartup" serializeAs="String">
-                <value>False</value>
-            </setting>
-        </MiBand_Heartrate.Properties.Settings>
-    </userSettings>
-</configuration>
+``` toml
+[Device]
+useAutoConnect = true
+autoConnectDeviceVersion = "4"
+autoConnectDeviceName = "Mi Band 4"
+autoConnectDeviceAuthkey = "0123456789abcdef0123456789abcdef"
 ```
 
 
@@ -164,20 +136,17 @@ Windows10でMi Bandデバイスで心拍数を取得します。
 
 ### ビルドに必要なもの
 
-* Windows SDK 10.0.18362.1
-
-  ダウンロード : [Windows SDK and emulator archive](https://developer.microsoft.com/en-US/windows/downloads/sdk-archive/)
 * A suitable IDE, like Visual Studio 2022 or Jetbrains Rider
-* .Net 7.0 or newer SDK
+* .Net 10.0 SDK
 
 
 ### Build
 
 * このリポジトリをクローンしてください
 
-* `MiBand-Heartrate.sln`のソリューションを開いてください
+* `MiBand-Heartrate.slnx`のソリューションを開いてください
 
-* MiBand-Heartrate のソリューションを右クリックしてビルド
+* ソリューションを右クリックしてビルド
 
 
 ### 便利なリンク

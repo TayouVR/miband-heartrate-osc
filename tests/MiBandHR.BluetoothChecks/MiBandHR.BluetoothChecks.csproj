@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BluetoothChecksWindows Condition="'$(BluetoothChecksWindows)' == ''">false</BluetoothChecksWindows>
+    <DefineConstants Condition="'$(BluetoothChecksWindows)' == 'true'">$(DefineConstants);WINDOWS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../MiBandHR.Core/Bluetooth/IBluetoothDevice.cs" Link="Production/IBluetoothDevice.cs" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/IGattService.cs" Link="Production/IGattService.cs" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/IGattCharacteristic.cs" Link="Production/IGattCharacteristic.cs" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/BluetoothLog.cs" Link="Production/BluetoothLog.cs" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/InTheHand/*Device.cs;../../MiBandHR.Core/Bluetooth/InTheHand/*Service.cs;../../MiBandHR.Core/Bluetooth/InTheHand/*Characteristic.cs" Link="Production/InTheHand/%(Filename)%(Extension)" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/Salar/*Device.cs;../../MiBandHR.Core/Bluetooth/Salar/*Service.cs;../../MiBandHR.Core/Bluetooth/Salar/*Characteristic.cs" Link="Production/Salar/%(Filename)%(Extension)" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/BlueZ/*.cs" Exclude="../../MiBandHR.Core/Bluetooth/BlueZ/*Scanner.cs" Link="Production/BlueZ/%(Filename)%(Extension)" Condition="'$(BluetoothChecksWindows)' != 'true'" />
+    <Compile Include="../../MiBandHR.Core/Bluetooth/Windows/*Device.cs;../../MiBandHR.Core/Bluetooth/Windows/*Service.cs;../../MiBandHR.Core/Bluetooth/Windows/*Characteristic.cs" Link="Production/Windows/%(Filename)%(Extension)" Condition="'$(BluetoothChecksWindows)' == 'true'" />
+  </ItemGroup>
+</Project>

@@ -1,7 +1,9 @@
 # Mi Band Heartrate
 [日本語](README.ja.md)
 
-Enable and monitor heartrate with Mi Band device on Windows 10.
+Enable and monitor heartrate with Mi Band devices. Cross-platform frontends
+(Avalonia GUI + console app) for Windows, Linux and macOS; all frontends share
+the `MiBandHR.Core` library.
 
 ![miband heartrate](https://github.com/Eryux/miband-heartrate/raw/master/mibandheatrate-screen.png "Mi Band Heartrate screen")
 ![miband heartrate newer version](https://github.com/TayouVR/miband-heartrate-osc/assets/31988415/9f7684bb-03ce-4dff-960e-78cacb0a31b4)
@@ -17,9 +19,40 @@ Enable and monitor heartrate with Mi Band device on Windows 10.
 
 ### Requirements
 
-* .NET Framework 4.8 ([download](https://dotnet.microsoft.com/download/dotnet-framework/net48))
-* Windows 10 1703+ (Creators Update)
+#### GUI app (Avalonia, cross-platform)
+
+* .NET 10 SDK/runtime ([download](https://dotnet.microsoft.com/download))
+* Windows 10 1703+, Linux with BlueZ + a desktop environment (X11 or Wayland), or macOS
 * Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+
+Run it with:
+
+```bash
+dotnet run --project MiBandHR.Avalonia/MiBandHR.Avalonia.csproj
+```
+
+#### Console app (cross-platform)
+
+* .NET 10 SDK/runtime ([download](https://dotnet.microsoft.com/download))
+* Windows 10 1703+, Linux with BlueZ, or macOS
+* Bluetooth adapter supporting Bluetooth 4.0/4.2 BLE
+
+Run it with:
+
+```bash
+dotnet run --project MiBandHR.Cli/MiBandHR.Cli.csproj
+# or with a custom config file:
+dotnet run --project MiBandHR.Cli/MiBandHR.Cli.csproj -- --config /path/to/config.toml
+```
+
+On Linux make sure your user is allowed to access Bluetooth (e.g. member of
+the `bluetooth` group or a suitable polkit rule) and that the adapter is
+powered (`bluetoothctl power on`).
+
+The configuration is stored as TOML. By default it lives in
+`%APPDATA%/miband-heartrate/config.toml` (Windows) or
+`~/.config/miband-heartrate/config.toml` (Linux/macOS) and is created with
+defaults on first run.
 
 
 ### Usage
@@ -32,7 +65,7 @@ Enable and monitor heartrate with Mi Band device on Windows 10.
 
 * Connect and pair your Mi Band 2/3 to your computer
 
-* Launch `MiBand-Heartrate.exe`
+* Launch the app (`MiBandHR.Avalonia`)
 
 * Click on `Manual Connect` button and select your device from device list and set model on `Mi Band 2` or `Mi Band 3` then click on `Connect`
 
@@ -44,7 +77,7 @@ Enable and monitor heartrate with Mi Band device on Windows 10.
 
 * Connect and pair you Mi Band 4/5 to your computer
 
-* Launch `MiBand-Heartrate.exe`
+* Launch the app (`MiBandHR.Avalonia`)
 
 * Click on `Manual Connect` button and select your device from device list and set model on `Mi Band 4` then click on `Connect`
 
@@ -55,7 +88,8 @@ Enable and monitor heartrate with Mi Band device on Windows 10.
 
 ### Automatic Connection
 
-You can make an automatic connection by setting `MiBand-Heartrate-2.exe.config` in the same directory as `MiBand-Heartrate-2.exe`.
+You can enable automatic connection by setting the `[Device]` section in the
+TOML configuration file (see `config.toml`, created on first run).
 
 If you enable automatic connection, the `Manual Connect` button changes to a `Auto Connect` button.
 
@@ -67,46 +101,12 @@ If you enable automatic connection, the `Manual Connect` button changes to a `Au
 |autoConnectDeviceAuthkey|32-characters authentication key|Example: `0123456789abcdef0123456789abcdef`|
 
 Example
-``` xml
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-    <configSections>
-        <sectionGroup name="userSettings" type="System.Configuration.UserSettingsGroup, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
-            <section name="MiBand_Heartrate.Properties.Settings" type="System.Configuration.ClientSettingsSection, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" allowExeDefinition="MachineToLocalUser" requirePermission="false" />
-        </sectionGroup>
-    </configSections>
-    <userSettings>
-        <MiBand_Heartrate.Properties.Settings>
-            <setting name="useAutoConnect" serializeAs="String">
-                <value>False</value>
-            </setting>
-            <setting name="autoConnectDeviceVersion" serializeAs="String">
-                <value>3</value>
-            </setting>
-            <setting name="autoConnectDeviceName" serializeAs="String">
-                <value>Mi Band 3</value>
-            </setting>
-            <setting name="autoConnectDeviceAuthKey" serializeAs="String">
-                <value>0123456789abcdef0123456789abcdef</value>
-            </setting>
-            <setting name="continuousMode" serializeAs="String">
-                <value>True</value>
-            </setting>
-            <setting name="fileOutput" serializeAs="String">
-                <value>False</value>
-            </setting>
-            <setting name="csvOutput" serializeAs="String">
-                <value>False</value>
-            </setting>
-            <setting name="oscOutput" serializeAs="String">
-                <value>True</value>
-            </setting>
-            <setting name="tryConnectOnStartup" serializeAs="String">
-                <value>False</value>
-            </setting>
-        </MiBand_Heartrate.Properties.Settings>
-    </userSettings>
-</configuration>
+``` toml
+[Device]
+useAutoConnect = true
+autoConnectDeviceVersion = "4"
+autoConnectDeviceName = "Mi Band 4"
+autoConnectDeviceAuthkey = "0123456789abcdef0123456789abcdef"
 ```
 
 
@@ -155,20 +155,55 @@ If "Send OSC to VRChat" is enabled, this app will continue to send the following
 
 ### Build requirements
 
-* Windows SDK 10.0.18362.1
-
-  Download : [Windows SDK and emulator archive](https://developer.microsoft.com/en-US/windows/downloads/sdk-archive/)
 * A suitable IDE, like Visual Studio 2022 or Jetbrains Rider
-* .Net 7.0 or newer SDK
+* .Net 10.0 SDK
 
 
 ### Build
 
 * Clone git repository
 
-* Open `MiBand-Heartrate.sln` with Visual Studio
+* Open `MiBand-Heartrate.slnx` with Visual Studio
 
-* Right-click on MiBand-Heartrate solution and select generate
+* Right-click on the solution and select build
+
+Or from the command line:
+
+```bash
+dotnet build MiBandHR.Core/MiBandHR.Core.csproj         # cross-platform library
+dotnet build MiBandHR.Cli/MiBandHR.Cli.csproj           # cross-platform console app
+dotnet build MiBandHR.Avalonia/MiBandHR.Avalonia.csproj # cross-platform GUI
+```
+
+#### Nix / NixOS
+
+A `flake.nix` provides a dev shell with the .NET SDK and all native
+dependencies of the GUI (fontconfig, freetype, X11, ICU), as well as ready to
+run packages:
+
+```bash
+nix develop                            # enter the dev shell
+nix build .#miband-heartrate-gui       # GUI package (also .#default)
+nix run .#miband-heartrate-gui         # build & run the GUI
+nix build .#miband-heartrate-cli       # console package
+```
+
+### Project structure & documentation
+
+* `MiBandHR.Core` – cross-platform library. All Bluetooth access goes through
+  the abstraction in `MiBandHR.Core/Bluetooth/`
+  (`IBluetoothScanner`, `IBluetoothDevice`, `IGattService`,
+  `IGattCharacteristic`), with `Bluetooth/InTheHand/` as the default
+  implementation backed by [InTheHand.BluetoothLE](https://www.nuget.org/packages/InTheHand.BluetoothLE).
+  The Mi Band protocol itself (authentication handshake, heart rate session)
+  lives in `MiBandHR.Core/Devices/`.
+* `MiBandHR.Cli` – cross-platform console frontend.
+* `MiBandHR.Avalonia` – cross-platform GUI frontend.
+* [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) – extensive description of
+  the Mi Band authentication handshake (key exchange, AES-128/ECB challenge
+  response, per-generation differences, failure handling).
+* [`docs/Main_Info.md`](docs/Main_Info.md) – repository layout and
+  architecture notes.
 
 
 ### Useful links

@@ -6,43 +6,38 @@ on:
       - '*'
 
 jobs:
-
   build_release:
     name: Build Release
     uses: ./.github/workflows/build.yml
-    with:
-      build_type: Release
 
   create_release:
     needs: build_release
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          submodules: 'true'
-          path: 'PrismLauncher-source'
+
       - name: Download artifacts
         uses: actions/download-artifact@v7
+
       - name: Grab and store version
         run: |
           tag_name=$(echo ${{ github.ref }} | grep -oE "[^/]+$")
           echo "VERSION=$tag_name" >> $GITHUB_ENV
-      - name: Package artifacts properly
+
+      - name: Package artifacts
         run: |
-          zip -r -9 "../${NAME}-${{ env.VERSION }}.zip" ${{ github.workspace }}/artifact/${{ env.App_Name }}-${{ matrix.configuration }}/
+          mkdir -p dist
+          zip -r -9 "dist/MiBand-Heartrate-GUI-${{ env.VERSION }}.zip" "MiBand-Heartrate-Portable-Release/"
+          zip -r -9 "dist/MiBand-Heartrate-CLI-${{ env.VERSION }}.zip" "MiBand-Heartrate-cli-Portable-Release/"
 
       - name: Create release
-        id: create_release
         uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          name: MiBand Heartrate Portable
+          name: MiBand Heartrate
           draft: true
           prerelease: false
           files: |
-            MiBand-Heartrate-Portable.zip
+            dist/MiBand-Heartrate-GUI-*.zip
+            dist/MiBand-Heartrate-CLI-*.zip
